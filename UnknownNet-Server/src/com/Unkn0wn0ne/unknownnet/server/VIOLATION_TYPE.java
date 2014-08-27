@@ -1,5 +1,9 @@
 package com.Unkn0wn0ne.unknownnet.server;
 
+/**
+ * Enum listing the possible protocol / security / intergrity violations a client can triggered. Used for server security purposes. For more information see {@link ServerGuard}
+ * @author Unkn0wn0ne
+ */
 public enum VIOLATION_TYPE {
 	/**
 	 * A client sent violated the implementation or internal protocol. 
@@ -33,6 +37,10 @@ public enum VIOLATION_TYPE {
 		this.type = type;
 	}
     
+    /**
+     * Gets the violation type
+     * @return The violation type.
+     */
     public String getType() {
     	return type;
     }

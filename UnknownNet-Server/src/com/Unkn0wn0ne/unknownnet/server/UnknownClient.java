@@ -50,7 +50,13 @@ public class UnknownClient implements Runnable {
 	private Object tag;
 	private int clientId;
 	
-	public UnknownClient(Socket socket, UnknownServer server) {
+	
+	/**
+	 * Internal constructor. Should not be called
+	 * @param socket
+	 * @param server
+	 */
+	protected UnknownClient(Socket socket, UnknownServer server) {
 		this.connection = socket;
 		this.server = server;
 		
@@ -213,6 +219,10 @@ public class UnknownClient implements Runnable {
 		}
 	}
 
+	/**
+	 * Gets the socket object of the client
+	 * @return The socket object the client is using.
+	 */
 	public Socket getSocket() {
 		return this.connection;
 	}
@@ -248,25 +258,48 @@ public class UnknownClient implements Runnable {
 		} catch (IOException e) {
 			
 		}
-		this.server.removeClient(this);
+		this.server.handleClientLeaving(this);
 	}
 
+	/**
+	 * Returns whether or not the client has been ejected (kicked) from the server
+	 */
 	public boolean hasBeenEjected() {
 		return this.hasBeenEjected;
 	}
 	
+	/**
+	 * Internal method. Do not call
+	 * Sets the client state
+	 * @param stateCode the new state of the client
+	 */
 	protected void setState(int stateCode) {
 		this.clientState = stateCode;
 	}
 	
+	/**
+	 * Gets the client state. 
+	 * -1 = Unauthenticated - Client is placed in a sandbox and can only access the authentication service of the server. 
+	 * 0 = Authenticated - Server has accepted the client and it can proceed to access the rest of server. At this point a client can become visible.
+	 * 1 = Administrative - This client has administrative access and can access administrative commands (implies 0; unauth'd clients cannot gain admin for security reasons (i.e. if rogue admin was banned they could bypass auth or hacking.)
+	 * @return the clients current state
+	 */
 	public int getState() {
 		return this.clientState;
 	}
 
-	public void start() {
+	/**
+	 * Internal method. Do not call
+	 * Starts the client thread.
+	 */
+	protected void start() {
 		new Thread(this).start();
 	}
 	
+	/**
+	 * Queues a packet to be sent as soon as possible
+	 * @param p The packet to be sent
+	 */
 	public void queuePacket(Packet p) {
 		if (p == null) {
 			return;
@@ -282,7 +315,12 @@ public class UnknownClient implements Runnable {
 		}
 	}
 
-	public void sendKeepAlive() {
+	/**
+	 * Internal method. Do not call
+	 * Sends a keep alive packet to the client.
+	 * If a client has not responded the the previous one, this method will eject it for timing out
+	 */
+	protected void sendKeepAlive() {
 		this.missedKeepAlives++;
 		if (this.missedKeepAlives > 0) {
 			this.eject("Client Timeout: Missed a keep alive.", false);
@@ -291,18 +329,35 @@ public class UnknownClient implements Runnable {
 	}
 	
 	
+	/**
+	 * Allows your implementation to set an object for the client to have to identify it or that belongs to it.
+	 * @param object The object you'd like to set as a tag
+	 */
 	public void setObjectTag(Object object) {
 		this.tag = object;
 	}
 	
+	/**
+	 * Gets the object that the client has a tag
+	 * @return The client's object tag.
+	 */
 	public Object getClientTag() {
 		return this.tag;
 	}
 
+	/**
+	 * Gets the client's unique id for the session
+	 * @return The clients unique id
+	 */
 	public int getId() {
 		return this.clientId;
 	}
 	
+	/** 
+	 * Internal method. Do not call.
+	 * Sets the client id
+	 * @param id The id to set as the clients id.
+	 */
 	protected void setId(int id) {
 		this.clientId = id;
 	}

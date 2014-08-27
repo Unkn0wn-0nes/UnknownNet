@@ -20,6 +20,10 @@ import com.Unkn0wn0ne.unknownet.client.net.InternalPacket3KeepAlive;
 import com.Unkn0wn0ne.unknownet.client.net.Packet;
 import com.Unkn0wn0ne.unknownet.client.net.Packet.PACKET_PRIORITY;
 
+/**
+ * UnknownClient - Abstract class for connecting to an UnknownNet server.
+ * @author Unkn0wn0ne
+ */
 public abstract class UnknownClient implements Runnable{
 
 	public Logger logger = Logger.getLogger("UnknownNet");
@@ -47,6 +51,11 @@ public abstract class UnknownClient implements Runnable{
 
 	private String[] loginParams = null;
 	
+	/**
+	 * Creates an UnknownClient object for use in connecting to an UnknownNet server.
+	 * @param useSSL Whether or not to connect to the server using SSL (Secure Socket Layer)
+	 * @param protocolVersion The version of your custom protocol, used by the server to verify your client is up to date.
+	 */
 	public UnknownClient(boolean useSSL, String protocolVersion) {
 		this.useSSL = useSSL;
 		this.protocolVersion = protocolVersion;
@@ -59,6 +68,12 @@ public abstract class UnknownClient implements Runnable{
 		}
 	}
 	
+	/**
+	 * Connects the client to a UnknownNet-based server
+	 * @param ip The IP address or hostname of the server to connect to
+	 * @param port The port that the server is running on
+	 * @param loginData A string array full of data that will be sent to the server for authentication purposes. This can be null and what this contains is completely up to your implementation
+	 */
 	public void connect(String ip, int port, String[] loginData) {
 		this.ipAddress = ip;
 		this.port = port;
@@ -66,6 +81,10 @@ public abstract class UnknownClient implements Runnable{
 		new Thread(this).start();
 	}
 	
+	/**
+	 * Internal method.
+	 * Handles the client connection along with sending packets
+	 */
 	@Override
 	public void run() {
 		System.out.println("Running.");
@@ -187,6 +206,10 @@ public abstract class UnknownClient implements Runnable{
 		}
 	}
 
+	/**
+	 * Internal method
+	 * This loop runs in a separate thread and handles reading the packet ids from the stream and than calling handlePacketReceive
+	 */
 	protected void doReadLoop() {
 		while (this.socket.isConnected()) {
 			try {
@@ -207,6 +230,13 @@ public abstract class UnknownClient implements Runnable{
 		}
 	}
 
+	/**
+	 * Internal method.
+	 * Handles receiving of packets
+	 * @param id The id of the packet received
+	 * @throws ProtocolViolationException If the protocol was violated during the packet receive
+	 * @throws IOException If there was an IO error receiving the packet
+	 */
 	private void handlePacketReceive(int id) throws ProtocolViolationException, IOException {
 		switch (id) {
 		case -3: {

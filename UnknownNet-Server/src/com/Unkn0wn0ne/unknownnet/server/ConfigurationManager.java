@@ -15,7 +15,7 @@ public class ConfigurationManager {
 	// TCP settings 
 	private boolean TCP_NODELAY = true; 
 	private int IP_TOS = 0x10;
-	private boolean KEEP_ALIVE = false; 
+	private boolean KEEP_ALIVE = true; // Note: Temporary, I just have to patch the client
 	
 	public ConfigurationManager() {
 		File config = new File("unknownserver.properties");

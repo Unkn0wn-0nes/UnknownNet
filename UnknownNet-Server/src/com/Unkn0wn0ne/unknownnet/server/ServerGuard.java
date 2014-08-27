@@ -8,6 +8,7 @@ public class ServerGuard {
 
 	private Logger logger = Logger.getLogger("UnknownNet");
 	
+	
 	public void logSecurityViolation(VIOLATION_TYPE issue, UnknownClient client) {
 		if (issue != VIOLATION_TYPE.UNEXPECTED_BEHAVIOR) {
 			logger.severe("Internal/ServerGuard: Client '" + client.getSocket().getInetAddress().getHostAddress() + "' has triggered a security violation and it's connection will now be terminated. Violation Type: " + issue.getType());

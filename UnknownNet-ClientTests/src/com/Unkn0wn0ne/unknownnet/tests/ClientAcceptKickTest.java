@@ -8,14 +8,7 @@ public class ClientAcceptKickTest extends UnknownClient{
 
 	public ClientAcceptKickTest() {
 		super(false, "unknownserver-dev");
-//		String[] derp = new String[3];
-		//derp[0] = "Herp";
-	//	derp[1] = "Derp";
-	//	derp[2] = "HerpDerp";
-		
-	//	for (int x = 0; x < derp.length; x++) {
-	//		System.out.println(x + ": " + derp[x]);
-	//	}
+
 		this.registerPacket(1, Packet1ChatMessage.class);
 		String msg = System.console().readLine();
 		String[] secretLoginCode = new String[2];
