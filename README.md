@@ -4,7 +4,7 @@ UnknownNet is currently in heavy development and is not suitable for production 
 UnknownNet
 ==========
 
-UnknownNet is a Java-based networking architecture wrapping around the TCP and UDP networking protocols, primiarly focusing on game servers, but can be used for other types of software. It contains a client library for clients to use and a server base for you to build a game server over without dealing with the pesky networking code. 
+UnknownNet is a Java-based networking architecture wrapping around the TCP networking protocol, primiarly focusing on game servers, but can be used for other types of software. It contains a client library for clients to use and a server base for you to build a game server over without dealing with the pesky networking code. 
 
 License 
 ==========
