@@ -7,7 +7,7 @@ import com.Unkn0wn0ne.unknownet.client.net.Packet;
 public class ClientAcceptKickTest extends UnknownClient{
 
 	public ClientAcceptKickTest() {
-		super(false, "unknownserver-dev");
+		super(false, "unknownserver-dev", false);
 
 		this.registerPacket(1, Packet1ChatMessage.class);
 		String msg = System.console().readLine();
