@@ -19,6 +19,9 @@ public class ConfigurationManager {
 	
 	private String protocol = "UDP";
 	
+	// UDP settings
+	private int authServerPort= 4333;
+	
 	public ConfigurationManager() {
 		File config = new File("unknownserver.properties");
 		if (!config.exists()) {
@@ -61,5 +64,9 @@ public class ConfigurationManager {
 	
 	public String getProtocol() {
 		return this.protocol;
+	}
+	
+	public int getAuthServerPort() {
+		return this.authServerPort;
 	}
 }

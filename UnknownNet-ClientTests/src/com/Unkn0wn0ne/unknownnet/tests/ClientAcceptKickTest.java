@@ -14,7 +14,7 @@ public class ClientAcceptKickTest extends UnknownClient{
 		String[] secretLoginCode = new String[2];
 		secretLoginCode[0] = "Password";
 		secretLoginCode[1] = msg;
-		this.connect("192.168.1.16", 4334, secretLoginCode);
+		this.connectUDP("192.168.1.16", 4334, 4333, secretLoginCode);
 		mainLoop();
 	}
 

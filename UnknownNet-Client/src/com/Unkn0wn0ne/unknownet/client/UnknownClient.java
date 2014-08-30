@@ -44,10 +44,12 @@ public abstract class UnknownClient implements Runnable{
 	
 	private Socket socket = null;
 	private DatagramSocket dSocket = null;
+	private int authPort = 4333;
 	
 	private DataInputStream dataInputStream = null;
 	private DataOutputStream dataOutputStream = null;
 	private DatagramPacket dPacket = null;
+	private DatagramPacket dPacket2 = null;
 	private ByteArrayOutputStream udpWriter = null;
 	private ByteArrayInputStream udpReader = null;
 	private int uid = -1;
@@ -87,14 +89,22 @@ public abstract class UnknownClient implements Runnable{
 	}
 	
 	/**
-	 * Connects the client to a UnknownNet-based server
+	 * Connects the client to a UnknownNet-based server over TCP
 	 * @param ip The IP address or hostname of the server to connect to
 	 * @param port The port that the server is running on
 	 * @param loginData A string array full of data that will be sent to the server for authentication purposes. This can be null and what this contains is completely up to your implementation
 	 */
-	public void connect(String ip, int port, String[] loginData) {
+	public void connectTCP(String ip, int port, String[] loginData) {
 		this.ipAddress = ip;
 		this.port = port;
+		this.loginParams = loginData;
+		new Thread(this).start();
+	}
+	
+	public void connectUDP(String ip, int port, int authPort, String[] loginData) {
+		this.ipAddress = ip;
+		this.port = port;
+		this.authPort = authPort;
 		this.loginParams = loginData;
 		new Thread(this).start();
 	}
@@ -227,14 +237,61 @@ public abstract class UnknownClient implements Runnable{
 			this.logger.info("Internal/UnknownClient: Running with UDP.");
 			
 			if (this.useSSL) {
-				this.logger.warning("Internal/UnknownClient: SSL over UDP is not supported in UnknownNet. Running without SSL.");
+				this.logger.warning("Internal/UnknownClient: SSL over UDP is not supported in UnknownNet, but UnknownNet initally connects with TCP to preform authentication to prevent complications and will use ssl for this process. After authentication UnknownNet will be running without SSL.");
+			}
+			
+			this.logger.info("Internal/UnknownClient: Connecting to authentication service on " + this.ipAddress + ":" + this.authPort + " via TCP socket.");
+			
+			try {
+				Socket authSocket = null;
+				if (!this.useSSL) {
+					authSocket = new Socket(this.ipAddress, this.authPort);
+				} else {
+					SocketFactory sslSocketFactory = SSLSocketFactory.getDefault();
+					authSocket = sslSocketFactory.createSocket(this.ipAddress, this.authPort);
+				}
+				
+				DataInputStream diStream = new DataInputStream(authSocket.getInputStream());
+				DataOutputStream doStream = new DataOutputStream(authSocket.getOutputStream());
+				
+				InternalPacket2Handshake handshakePacket = (InternalPacket2Handshake) this.clientRepository.getPacket(-2);
+				handshakePacket.setVariables(this.protocolVersion, (this.loginParams != null) ? true : false, this.loginParams);
+				handshakePacket._write(doStream);
+				int id = diStream.readInt();
+				handshakePacket.read(diStream);
+				
+				if (handshakePacket.getResponse() == false) {
+					// A getResponse() of false mandates a reason, so a InternalPacket1Kick will be sent explaining the reason
+					id = diStream.readInt();
+					InternalPacket1Kick disconnectPacket = (InternalPacket1Kick)this.clientRepository.getPacket(-1);
+					disconnectPacket.read(diStream);
+					String reason = disconnectPacket.getReason();
+					
+					logger.info("Internal/UnknownClient: Server is kicking us out! Message: " + reason);
+					this.socket.close();
+					this.onConnectionFailed(reason);
+					return;	
+			    }
+				this.uid = diStream.readInt();
+				diStream.close();
+				doStream.close();
+				authSocket.close();
+			}catch (UnknownHostException e1) {
+				e1.printStackTrace();
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			} catch (ProtocolViolationException e) {
+				e.printStackTrace();
 			}
 			
 			this.logger.info("Internal/UnknownClient: Connecting to " + this.ipAddress + ":" + this.port + " via datagram socket.");
 			
 			try {
+				
 				this.dSocket = new DatagramSocket();
 				this.dSocket.connect(InetAddress.getByName(this.ipAddress), this.port);
+				this.dPacket = new DatagramPacket(new byte[dSocket.getReceiveBufferSize()], dSocket.getReceiveBufferSize());
+				this.dPacket2 = new DatagramPacket(new byte[dSocket.getReceiveBufferSize()], dSocket.getReceiveBufferSize());
 			} catch (SocketException e) {
 				this.logger.severe("Internal/UnknownClient: Failed to connect to server; a SocketException has occurred. (Message: " + e.getMessage() + ")");
 				this.onConnectionFailed("Failed to connect to server; a SocketException has occurred. (Message: " + e.getMessage() + ")");
@@ -248,47 +305,6 @@ public abstract class UnknownClient implements Runnable{
 			
 			this.udpWriter = new ByteArrayOutputStream();
 			this.dataOutputStream = new DataOutputStream(this.udpWriter);
-			
-			try {
-				this.dPacket = new DatagramPacket(new byte[this.dSocket.getReceiveBufferSize()], this.dSocket.getReceiveBufferSize());
-				InternalPacket2Handshake handshakePacket = (InternalPacket2Handshake) this.clientRepository.getPacket(-2);
-				handshakePacket.setVariables(this.protocolVersion, (this.loginParams != null) ? true : false, this.loginParams);
-				handshakePacket._write(this.dataOutputStream);
-				
-				this.dataOutputStream.flush();
-				
-				this.dSocket.receive(this.dPacket);
-				
-				this.udpReader = new ByteArrayInputStream(this.dPacket.getData());
-				this.dataInputStream = new DataInputStream(this.udpReader);
-				
-				int id = this.dataInputStream.readInt();
-				handshakePacket.read(this.dataInputStream);
-				
-				if (handshakePacket.getResponse() == false) {
-						// A getResponse() of false mandates a reason, so a InternalPacket1Kick will be sent explaining the reason
-				        closeAndLoad();
-						id = this.dataInputStream.readInt();
-						InternalPacket1Kick disconnectPacket = (InternalPacket1Kick)this.clientRepository.getPacket(-1);
-						disconnectPacket.read(this.dataInputStream);
-						String reason = disconnectPacket.getReason();
-						logger.info("Internal/UnknownClient: Server is kicking us out! Message: " + reason);
-					this.socket.close();
-					this.onConnectionFailed(reason);
-					return;
-				}
-				this.uid = this.dataInputStream.readInt();
-				} catch (ProtocolViolationException e) {
-					logger.severe("Internal/UnknownClient: Failed to connect to server; a ProtocolViolationException has occurred.  (Message: " + e.getMessage() + ")");
-					this.onConnectionFailed("Failed to connect to server; an ProtocolViolationException has occurred. (Message: " + e.getMessage() + ")");
-					e.printStackTrace();
-					return;
-				} catch (IOException e) {
-					logger.severe("Internal/UnknownClient: Failed to connect to server; an IOException has occurred.  (Message: " + e.getMessage() + ")");
-					this.onConnectionFailed("Failed to connect to server; an IOException has occurred. (Message: " + e.getMessage() + ")");
-					e.printStackTrace();
-					return;
-				}
 			
 			logger.info("Internal/UnknownClient: Connection to " + ipAddress + ":" + port + " succeeded.");
 			
@@ -307,20 +323,29 @@ public abstract class UnknownClient implements Runnable{
 				}
 				
 				while (!this.highsToBeSent.isEmpty()) {
+					System.out.println("im sending da msg.");
 					try {
 						this.dataOutputStream.writeInt(this.uid);
+						System.out.println("im sending da msg. 2");
 						this.highsToBeSent.poll()._write(this.dataOutputStream);
+						System.out.println("im sending da msg. 3");
 						this.dataOutputStream.flush();
+						System.out.println("im sending da msg. 4");
 						this.dPacket.setData(this.udpWriter.toByteArray());
+						System.out.println("im sending da msg. 5");
 						this.dPacket.setLength(this.dPacket.getData().length);
+						System.out.println("im sending da msg. 6");
 						this.dSocket.send(this.dPacket);
+						System.out.println("im sending da msg. 7");
 						this.udpWriter.reset();
+						System.out.println("im sending da msg. 8");
 					} catch (IOException e) {
-						// TODO
+						e.printStackTrace();
 					}
 				}
 				
 				while (!this.internalsToBeSent.isEmpty()) {
+					System.out.println("im sending da msg.");
 					try {
 						this.dataOutputStream.writeInt(this.uid);
 						this.internal = this.internalsToBeSent.poll();
@@ -336,11 +361,12 @@ public abstract class UnknownClient implements Runnable{
 							return;
 						}
 					} catch (IOException e) {
-						// TODO
+						e.printStackTrace();
 					}
 				}
 				
 				while (!this.lowsToBeSent.isEmpty()) {
+					System.out.println("im sending da msg.");
 					try {
 						this.dataOutputStream.writeInt(this.uid);
 						this.lowsToBeSent.poll()._write(dataOutputStream);
@@ -350,7 +376,7 @@ public abstract class UnknownClient implements Runnable{
 						this.dSocket.send(this.dPacket);
 						this.udpWriter.reset();
 					} catch (IOException e) {
-						// TODO
+						e.printStackTrace();
 					}
 				}
 				
@@ -359,13 +385,15 @@ public abstract class UnknownClient implements Runnable{
 	}
 
 	private void closeAndLoad() throws IOException {
-	    this.dataInputStream.close();
+		if (dataInputStream != null) {
+		    this.dataInputStream.close();
+		}
 		this.udpReader = null;
 	    this.dataInputStream = null;
 	    
-	    this.dSocket.receive(this.dPacket);
+	    this.dSocket.receive(this.dPacket2);
 	    
-	    this.udpReader = new ByteArrayInputStream(this.dPacket.getData());
+	    this.udpReader = new ByteArrayInputStream(this.dPacket2.getData());
 	    this.dataInputStream = new DataInputStream(this.udpReader);
 	}
 
