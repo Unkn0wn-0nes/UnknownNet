@@ -17,6 +17,11 @@ public class ConfigurationManager {
 	private int IP_TOS = 0x10;
 	private boolean KEEP_ALIVE = true; // Note: Temporary, I just have to patch the client
 	
+	private String protocol = "UDP";
+	
+	// UDP settings
+	private int authServerPort = 4333;
+	
 	public ConfigurationManager() {
 		File config = new File("unknownserver.properties");
 		if (!config.exists()) {
@@ -55,5 +60,13 @@ public class ConfigurationManager {
 	
 	public boolean getKeepAlive() {
 		return this.KEEP_ALIVE;
+	}
+	
+	public String getProtocol() {
+		return this.protocol;
+	}
+	
+	public int getAuthServerPort() {
+		return this.authServerPort;
 	}
 }

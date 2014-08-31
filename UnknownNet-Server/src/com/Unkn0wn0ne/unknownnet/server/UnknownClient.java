@@ -1,15 +1,18 @@
 package com.Unkn0wn0ne.unknownnet.server;
 
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.InetAddress;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.LinkedList;
 import java.util.Queue;
 
 import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket1Kick;
-import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket2Handshake;
 import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket3KeepAlive;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet.PACKET_PRIORITY;
@@ -22,46 +25,69 @@ import com.Unkn0wn0ne.unknownnet.server.net.errors.ProtocolViolationException;
  * @author Unkn0wn0ne
  *
  */
-public class UnknownClient implements Runnable {
+public abstract class UnknownClient implements Runnable {
     
 	/*
 	 * -1 = Unauthenticated - Client is placed in a sandbox and can only access the authentication service of the server. 
 	 * 0 = Authenticated - Server has accepted the client and it can proceed to access the rest of server. At this point a client can become visible.
 	 * 1 = Administrative - This client has administrative access and can access administrative commands (implies 0; unauth'd clients cannot gain admin for security reasons (i.e. if rogue admin was banned they could bypass auth or hacking.)
 	 */
-	private int clientState = -1; 
-	private boolean hasBeenEjected = false;
+	protected int clientState = -1; 
+	protected boolean hasBeenEjected = false;
 	
-	private Socket connection;
-	private UnknownServer server;
+	protected Socket connection;
+	protected UnknownServer server;
 	
-	private DataInputStream dataInputStream;
-	private DataOutputStream dataOutputStream;
+	protected DataInputStream dataInputStream;
+	protected DataOutputStream dataOutputStream;
 	
 	
-	private Queue<Packet> internalsToBeSent = new LinkedList<Packet>();
-	private Queue<Packet> highPriorityToBeSent = new LinkedList<Packet>();
-	private Queue<Packet> lowPriorityToBeSent = new LinkedList<Packet>();
+	protected Queue<Packet> internalsToBeSent = new LinkedList<Packet>();
+	protected Queue<Packet> highPriorityToBeSent = new LinkedList<Packet>();
+	protected Queue<Packet> lowPriorityToBeSent = new LinkedList<Packet>();
 	
-	private Packet packet = null;
-	private int missedKeepAlives = -1;
+	protected Packet packet = null;
+	protected int missedKeepAlives = -1;
 	private InternalPacket3KeepAlive keepAlivePacket = null;
 	
 	private Object tag;
-	private int clientId;
+	protected int clientId;
 	
+	protected Queue<Packet> datagramsToBeProcessed = new LinkedList<Packet>();
+	private boolean isTCP = false;
+	
+	protected DatagramPacket datagram = null;
+	private InetAddress addr = null;
+	protected ByteArrayOutputStream udpWriter = null;
+	protected boolean udpActive = false;
+	
+	protected float sendKeepAlives = 0;
+	protected float receivedKeepAlives = 0;
 	
 	/**
 	 * Internal constructor. Should not be called
 	 * @param socket
 	 * @param server
+	 * @param proto
 	 */
-	protected UnknownClient(Socket socket, UnknownServer server) {
+	protected UnknownClient(Socket socket, UnknownServer server, boolean proto) {
+		this.isTCP = proto;
 		this.connection = socket;
 		this.server = server;
+		this.addr = connection.getInetAddress();
 		
+		if (!isTCP) {
+			byte[] buffer;
+			try {
+				buffer = new byte[socket.getReceiveBufferSize()];
+				this.datagram = new DatagramPacket(buffer, buffer.length);
+				this.datagram.setAddress(this.addr);
+			} catch (SocketException e) {
+			}
+		}
 	}
 
+	
 	@Override 
 	public void run() {
 		try {
@@ -71,162 +97,41 @@ public class UnknownClient implements Runnable {
 			this.keepAlivePacket = new InternalPacket3KeepAlive();
 		}
 		
-		try {
-			dataInputStream = new DataInputStream(this.connection.getInputStream());
-			dataOutputStream = new DataOutputStream(this.connection.getOutputStream());
-		} catch (IOException e1) {
+			try {
+				dataInputStream = new DataInputStream(this.connection.getInputStream());
+				dataOutputStream = new DataOutputStream(this.connection.getOutputStream());
+			} catch (IOException e1) {
+				
+			}
 			
-		}
-		
-		int id = 1;
-		try {
-			id = dataInputStream.readInt();
-		} catch (IOException e1) {
-			this.eject("Protocol error; IOException while accepting you.", false);
-			return;
-		}
-		if (id != -2) {
-			this.eject("Security Violation: First packet was not Handshake packet.", false);
-			return;
-		}
-		
-		String[] loginData = null;
-		try {
-			InternalPacket2Handshake handshakePacket = (InternalPacket2Handshake)this.server.getRepository().getPacket(-2);
-			handshakePacket.read(dataInputStream);
-			String version = handshakePacket.getVersion();
-			loginData = handshakePacket.getLoginData();
-			if (!version.equalsIgnoreCase(this.server.getProtocolVersion())) {
-				handshakePacket.setVariables(false);
-				handshakePacket._write(dataOutputStream);
-				this.eject("Protocol Error: Protocol version mismatch. (Server = " + this.server.getProtocolVersion() + " You = " + version + ") Have you updated your client?", false);
+			int id = 1;
+			try {
+				id = dataInputStream.readInt();
+			} catch (IOException e1) {
+				this.eject("Protocol error; IOException while accepting you.", false);
 				return;
-			} else if (!this.server.handleNewConnection(this, loginData)) {
-				handshakePacket.setVariables(false);
-				handshakePacket._write(dataOutputStream);
-				if (!this.hasBeenEjected()) {
-					this.eject("Server has refused to authenicate you.", false);
-					return;
-				}
-			} else {
-				this.setState(0); // Allows the client to escape the sandbox and access the rest of the server
-				server.freeClientFromSandbox(this);
-				handshakePacket.setVariables(true);
-				handshakePacket._write(dataOutputStream);
-			}	
-		} catch (ProtocolViolationException e1) {
-			this.eject("Protocol Error: A protocol violation has occurred. Message: " + e1.getMessage(), false);
-			return;
-		} catch (IOException e) {
-			this.eject("Protocol Error", false);
-			return;
-		}
-		
-		
-		
-		while (this.connection.isConnected()) {
-			try {
-				Thread.sleep(25);
-			} catch (InterruptedException e) {
-				
+			}
+			if (id != -2) {
+				this.eject("Security Violation: First packet was not Handshake packet.", false);
+				return;
 			}
 			
 			try {
-				if (dataInputStream.available() > 0) {
-					handlePacket(dataInputStream.readInt());
-				}
+				this.authenticateClient();
+			} catch (ProtocolViolationException e1) {
+				this.eject("Protocol Error: A protocol violation has occurred. Message: " + e1.getMessage(), false);
+				return;
 			} catch (IOException e) {
-				
-			} catch (ProtocolViolationException e) {
-				this.eject("Protocol Error: " + e.getMessage(), false);
+				this.eject("Protocol Error", false);
+				return;
 			}
 			
-			while (!this.internalsToBeSent.isEmpty()) {
-				Packet internalPacket = this.internalsToBeSent.poll();
-				
-				try { 
-					internalPacket._write(this.dataOutputStream);
-					
-				} catch (IOException e) {
-					this.eject("IOException occurred while sending data to stream.", false);
-				} 
-				
-				if (internalPacket instanceof InternalPacket1Kick) {
-						return;
-				}
-			}
-			
-			while (!this.highPriorityToBeSent.isEmpty()) {
-				try {
-					this.highPriorityToBeSent.poll()._write(this.dataOutputStream);
-				} catch (IOException e) {
-					this.eject("IOException occurred while sending data to stream.", false);
-				}
-			}
-			
-			while (!this.lowPriorityToBeSent.isEmpty()) {
-				try {
-					this.lowPriorityToBeSent.poll()._write(this.dataOutputStream);
-				} catch (IOException e) {
-					this.eject("IOException occurred while sending data to stream.", false);
-				}
-			}
-		}
+			this.handleConnection();
 	}
 	
-	private void handlePacket(int id) throws ProtocolViolationException, IOException {
-		if (this.hasBeenEjected) {
-			// Don't handle it. Client has been ejected and this thread will be shutting down.
-			return;
-		}
-		switch (id) {
-		case -4: {
-			if (this.clientState != 1) {
-				// Client is not registered as an administrator. (Hacking? Possible accident?)
-				// We won't handle this, instead we'll log it to our security manager, ServerGuard
-				this.server.getSeverGuard().logSecurityViolation(VIOLATION_TYPE.SECURITY_ISSUE, this);
-			}
-			return;
-		}
-		case -3: {
-			if (this.missedKeepAlives == -1) {
-				// Client is spamming keep-alive packets, eject them
-				this.eject("Protocol Error: Invalid keep alive packet received.", false);
-			}
-			this.missedKeepAlives = -1;
-			return;
-		}
-		case -2: {
-			// Handshake packets are handled before this method is used, and can only be sent once in the beginning of the connection.  
-			// This should not happen and violates the protocol specification. This results in termination of the connection.
-			this.eject("Protocol Error: You've already been authenticated.", false);
-			return;
-     	}
-		case -1: {
-			InternalPacket1Kick disconnectPacket = (InternalPacket1Kick)this.server.getRepository().getPacket(-1);
-			disconnectPacket.read(this.dataInputStream);
-			this.server.logger.info("Internal/UnknownClient: Client '" + this.connection.getInetAddress().getHostAddress() + "' has disconnection. [Reason: " + disconnectPacket.getMessage() + "]");
-			this.server.handleClientLeaving(this);
-			break;
-		}
-		default: {
-			// Not an internal packet, let implementation handle it.
-			packet = this.server.getRepository().getPacket(id);
-			packet.read(this.dataInputStream);
-			this.server.onPacketReceived(this, packet);
-			break;
-		}
-		}
-	}
+	
 
-	/**
-	 * Gets the socket object of the client
-	 * @return The socket object the client is using.
-	 */
-	public Socket getSocket() {
-		return this.connection;
-	}
-
+	
 	/**
 	 * Ejects the client from the server, removing it from the server's client list and sending the InternalPacket1Kick that kicks the client from the server. It stops various functions to allow the client to die.
 	 * @param msg The message to kick the client for.
@@ -237,7 +142,7 @@ public class UnknownClient implements Runnable {
 			return;
 		}
 		if (!isSilent) {
-			this.server.logger.info("Internal/UnknownClient: Ejecting client '" + this.connection.getInetAddress().getHostAddress() + "' for reason: " + msg);
+			this.server.logger.info("Internal/UnknownClient: Ejecting client '" + this.addr.getHostAddress() + "' for reason: " + msg);
 		}
 		this.hasBeenEjected = true;
 		try {
@@ -293,7 +198,7 @@ public class UnknownClient implements Runnable {
 	 * Starts the client thread.
 	 */
 	protected void start() {
-		new Thread(this).start();
+		new Thread(this, "Client-" + this.getId()).start();
 	}
 	
 	/**
@@ -304,6 +209,7 @@ public class UnknownClient implements Runnable {
 		if (p == null) {
 			return;
 		}
+		
 		if (p.getPriority() == PACKET_PRIORITY.INTERNAL) {
 			this.internalsToBeSent.add(p);
 			return;
@@ -315,6 +221,11 @@ public class UnknownClient implements Runnable {
 		}
 	}
 
+	protected void queueUDPPacketProcess(Packet packet) {
+		this.datagramsToBeProcessed.add(packet);
+	}
+	
+	
 	/**
 	 * Internal method. Do not call
 	 * Sends a keep alive packet to the client.
@@ -322,8 +233,9 @@ public class UnknownClient implements Runnable {
 	 */
 	protected void sendKeepAlive() {
 		this.missedKeepAlives++;
-		if (this.missedKeepAlives > 0) {
-			this.eject("Client Timeout: Missed a keep alive.", false);
+		this.sendKeepAlives++;
+		if (this.missedKeepAlives > 3) {
+			this.eject("Client Timeout: Missed 3 keep alives.", false);
 		}
 		this.queuePacket(this.keepAlivePacket);
 	}
@@ -361,4 +273,19 @@ public class UnknownClient implements Runnable {
 	protected void setId(int id) {
 		this.clientId = id;
 	}
+
+	public InetAddress getAddress() {
+		return this.addr;
+	}
+	
+	protected void setUDP(int port) {
+		if (this.udpActive) return;
+		this.datagram.setPort(port);
+	}
+	
+	protected abstract void processPacket(Packet packet);
+	
+	protected abstract void authenticateClient() throws IOException, ProtocolViolationException;
+	
+	protected abstract void handleConnection();
 }

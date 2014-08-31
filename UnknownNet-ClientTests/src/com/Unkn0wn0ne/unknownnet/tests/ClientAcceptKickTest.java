@@ -7,14 +7,14 @@ import com.Unkn0wn0ne.unknownet.client.net.Packet;
 public class ClientAcceptKickTest extends UnknownClient{
 
 	public ClientAcceptKickTest() {
-		super(false, "unknownserver-dev");
+		super(false, "unknownserver-dev", false);
 
 		this.registerPacket(1, Packet1ChatMessage.class);
 		String msg = System.console().readLine();
 		String[] secretLoginCode = new String[2];
 		secretLoginCode[0] = "Password";
 		secretLoginCode[1] = msg;
-		this.connect("192.168.1.16", 4334, secretLoginCode);
+		this.connectUDP("192.168.1.16", 4334, 4333, secretLoginCode);
 		mainLoop();
 	}
 

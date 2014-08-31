@@ -11,10 +11,10 @@ public class ServerGuard {
 	
 	public void logSecurityViolation(VIOLATION_TYPE issue, UnknownClient client) {
 		if (issue != VIOLATION_TYPE.UNEXPECTED_BEHAVIOR) {
-			logger.severe("Internal/ServerGuard: Client '" + client.getSocket().getInetAddress().getHostAddress() + "' has triggered a security violation and it's connection will now be terminated. Violation Type: " + issue.getType());
+			logger.severe("Internal/ServerGuard: Client '" + client.getAddress().getHostAddress() + "' has triggered a security violation and it's connection will now be terminated. Violation Type: " + issue.getType());
 			client.eject("A security violation has occurred and your client's connection has been terminated for the network's safety. This action has been recorded.", false);
 		} else {
-			logger.warning("Internal/ServerGuard: Client '" + client.getSocket().getInetAddress().getHostAddress() + "' has preformed an action that has caused an unexpected behavior to result.");
+			logger.warning("Internal/ServerGuard: Client '" + client.getAddress().getHostAddress() + "' has preformed an action that has caused an unexpected behavior to result.");
 		}
 	}
 	
@@ -22,7 +22,7 @@ public class ServerGuard {
 	
 	public boolean verifyClient(UnknownClient client) {
 		synchronized (this.bannedIPs) {
-			String ip = client.getSocket().getInetAddress().getHostAddress();
+			String ip = client.getAddress().getHostAddress();
 			if (this.bannedIPs.contains(ip)) {
 				logger.warning("Internal/ServerSecurityManager: Banned ip address '" + ip + "' has attempted to connect. Ejecting client.");
 				client.eject("Security Violation: You have been banned from this server.", false);
@@ -34,7 +34,7 @@ public class ServerGuard {
 	
 	public void ipBanClient(UnknownClient client) {
 		synchronized (this.bannedIPs) {
-			String ip = client.getSocket().getInetAddress().getHostAddress();
+			String ip = client.getAddress().getHostAddress();
 			logger.info("Internal/ServerSecurityManager: Banning ip '" + ip + "'");
 			this.bannedIPs.add(ip);
 			client.eject("Security Violation: You have been banned from this server.", false);
