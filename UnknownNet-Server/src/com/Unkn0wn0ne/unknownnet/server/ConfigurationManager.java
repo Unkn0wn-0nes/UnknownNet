@@ -20,7 +20,7 @@ public class ConfigurationManager {
 	private String protocol = "UDP";
 	
 	// UDP settings
-	private int authServerPort= 4333;
+	private int authServerPort = 4333;
 	
 	public ConfigurationManager() {
 		File config = new File("unknownserver.properties");

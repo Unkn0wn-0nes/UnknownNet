@@ -22,6 +22,7 @@ import javax.net.ssl.SSLServerSocketFactory;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet;
 import com.Unkn0wn0ne.unknownnet.server.net.ServerRepository;
 import com.Unkn0wn0ne.unknownnet.server.net.errors.ProtocolViolationException;
+import com.Unkn0wn0ne.unknownnet.server.util.UnknownExceptionHandler;
 
 /**
  * UnknownServer - An abstract class that manages the various functions to keep an UnknownServer alive and functional
@@ -56,6 +57,7 @@ public abstract class UnknownServer implements Runnable {
 	public UnknownServer() {
 		this.logger.addHandler(new ConsoleHandler());
 		this.logger.addHandler(new FileLogHandler());
+		Thread.setDefaultUncaughtExceptionHandler(new UnknownExceptionHandler(this));
 	}
 	
 	/**
@@ -73,7 +75,7 @@ public abstract class UnknownServer implements Runnable {
 	public void startServer() {
 		this.serverRepository.init();
 		this.isRunning = true;
-		new Thread(this).start();
+		new Thread(this, "Server-Connection-Thread").start();
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
@@ -223,8 +225,8 @@ public abstract class UnknownServer implements Runnable {
 							e.printStackTrace();
 							return;
 						}
-						DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 						while (!UnknownServer.this.uServerSocket.isClosed()) {
+							DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 							try {
 								Thread.sleep(10);
 							} catch (InterruptedException e) {
@@ -233,7 +235,6 @@ public abstract class UnknownServer implements Runnable {
 							
 							try {
 								UnknownServer.this.uServerSocket.receive(packet);
-								System.out.println("Received.");
 								UnknownServer.this.datagramsToBeProcessed.add(packet);
 							} catch (IOException e) {
 							
@@ -241,7 +242,7 @@ public abstract class UnknownServer implements Runnable {
 						}
 					}
 					
-				}).start();
+				}, "Server-UDP-Receive-Thread").start();
 			
 			
 			new Thread(new Runnable() {
@@ -250,7 +251,7 @@ public abstract class UnknownServer implements Runnable {
 					UnknownServer.this.handleUDPReceiveLoop();
 				}
 				
-			}).start();
+			}, "Server-UDP-Director-Thread").start();
 			
 			while (!serv_socket.isClosed()) {
 				try {
@@ -294,10 +295,8 @@ public abstract class UnknownServer implements Runnable {
 					dataStream = null;
 					uPacket = null;
 				}
-				
 				bufferInputStream = new ByteArrayInputStream(packet.getData());
-				dataStream = new DataInputStream(bufferInputStream);
-				
+				dataStream = new DataInputStream(bufferInputStream);;
 				try {
 					int clientId = dataStream.readInt();
 					int p_id = dataStream.readInt();
@@ -305,7 +304,6 @@ public abstract class UnknownServer implements Runnable {
 					uPacket = this.serverRepository.getPacket(p_id);
 					uPacket.read(dataStream);
 					
-
 					synchronized (this.connectedClients) {
 						for (UnknownClient client : this.connectedClients) {
 							// Check by id and IP in order to avoid malicious attacks, not perfect but the best we've got
@@ -317,7 +315,6 @@ public abstract class UnknownServer implements Runnable {
 									break;
 								} else {
 									wasRead = true;
-									System.out.println("hawks lol.");
 									// Attempted attack, we'll just ignore
 									break;
 								}
@@ -378,7 +375,13 @@ public abstract class UnknownServer implements Runnable {
 	 */
 	private void handleNewClient(Socket socket, boolean isTCP) {
 		
-		UnknownClient client = new UnknownClient(socket, this, isTCP);
+		UnknownClient client = null;
+		
+		if (isTCP) {
+			client = new TCPClient(socket, this);
+		} else {
+			client = new UDPClient(socket, this);
+		}
 		
 		if (!serverGuard.verifyClient(client)) {
 			return;
@@ -531,5 +534,29 @@ public abstract class UnknownServer implements Runnable {
 	 */
 	public void setAllowingClients(boolean allow) {
 		this.isAllowingClients = allow;
+	}
+
+	public void removeClientOnError(int id) {
+		synchronized (this.connectedClients) {
+			for (UnknownClient c : this.connectedClients) {
+				if (c.getId() == id) {
+					this.serverGuard.logSecurityViolation(VIOLATION_TYPE.SYSTEM_ERROR_TRIGRERED, c);
+					return;
+				}
+			}
+		}
+	}
+
+	public void shutdown(boolean b) {
+		synchronized (this.connectedClients) {
+			for (UnknownClient c : this.connectedClients) {
+				c.eject("Server is shutting down.", true);
+			}
+		}
+		if (b) {
+			System.exit(1);
+		} else {
+			System.exit(0);
+		}
 	}
 }

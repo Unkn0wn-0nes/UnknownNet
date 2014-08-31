@@ -23,6 +23,7 @@ import com.Unkn0wn0ne.unknownet.client.net.ClientRepository;
 import com.Unkn0wn0ne.unknownet.client.net.InternalPacket1Kick;
 import com.Unkn0wn0ne.unknownet.client.net.InternalPacket2Handshake;
 import com.Unkn0wn0ne.unknownet.client.net.InternalPacket3KeepAlive;
+import com.Unkn0wn0ne.unknownet.client.net.InternalPacket5Hello;
 import com.Unkn0wn0ne.unknownet.client.net.Packet;
 import com.Unkn0wn0ne.unknownet.client.net.Packet.PACKET_PRIORITY;
 
@@ -315,6 +316,22 @@ public abstract class UnknownClient implements Runnable{
 				}
 				
 			}).start();
+			
+			InternalPacket5Hello hello = null;
+			try {
+				hello = (InternalPacket5Hello) this.clientRepository.getPacket(-5);
+			} catch (ProtocolViolationException e1) {
+				this.logger.severe("Internal/UnknownClient: ProtocolViolationException occurred while creating Hello packet; this should never happen.");
+			}
+			
+			if (hello == null) {
+				hello = new InternalPacket5Hello();
+			}
+			
+			for (int x = 0; x < 3; x++) {
+			this.queuePacket(hello);
+			}
+			
 			while (true) {
 				try {
 					Thread.sleep(25);
@@ -322,30 +339,22 @@ public abstract class UnknownClient implements Runnable{
 
 				}
 				
+				this.udpWriter.reset();
 				while (!this.highsToBeSent.isEmpty()) {
-					System.out.println("im sending da msg.");
 					try {
 						this.dataOutputStream.writeInt(this.uid);
-						System.out.println("im sending da msg. 2");
 						this.highsToBeSent.poll()._write(this.dataOutputStream);
-						System.out.println("im sending da msg. 3");
 						this.dataOutputStream.flush();
-						System.out.println("im sending da msg. 4");
 						this.dPacket.setData(this.udpWriter.toByteArray());
-						System.out.println("im sending da msg. 5");
 						this.dPacket.setLength(this.dPacket.getData().length);
-						System.out.println("im sending da msg. 6");
 						this.dSocket.send(this.dPacket);
-						System.out.println("im sending da msg. 7");
 						this.udpWriter.reset();
-						System.out.println("im sending da msg. 8");
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
 				}
 				
 				while (!this.internalsToBeSent.isEmpty()) {
-					System.out.println("im sending da msg.");
 					try {
 						this.dataOutputStream.writeInt(this.uid);
 						this.internal = this.internalsToBeSent.poll();
@@ -366,7 +375,6 @@ public abstract class UnknownClient implements Runnable{
 				}
 				
 				while (!this.lowsToBeSent.isEmpty()) {
-					System.out.println("im sending da msg.");
 					try {
 						this.dataOutputStream.writeInt(this.uid);
 						this.lowsToBeSent.poll()._write(dataOutputStream);

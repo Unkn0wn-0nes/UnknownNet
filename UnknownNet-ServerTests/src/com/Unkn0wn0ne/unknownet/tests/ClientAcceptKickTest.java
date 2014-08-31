@@ -33,7 +33,7 @@ public class ClientAcceptKickTest extends UnknownServer{
 		}
 		msgPacket.setVariables(username + " has joined our server!");
 		
-		int num = 1;
+		int num = 0;
 		synchronized (this.getConnectedClients()) {
 			for (UnknownClient c: this.getConnectedClients()) {
 				num++;
@@ -42,12 +42,7 @@ public class ClientAcceptKickTest extends UnknownServer{
 		}
 		
 		Packet1ChatMessage msgPacket2 = null;
-		try {
-			msgPacket2 = (Packet1ChatMessage) this.createPacket(1);
-		} catch (ProtocolViolationException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		msgPacket2 = new Packet1ChatMessage();
 		msgPacket2.setVariables("Welcome to our chat server! There are : " + num + " client(s) connected right now.");
 		client.queuePacket(msgPacket2);
 		return true;
@@ -56,12 +51,7 @@ public class ClientAcceptKickTest extends UnknownServer{
 	@Override
 	public void onClientLeave(UnknownClient client) {
 		Packet1ChatMessage msgPacket = null;
-		try {
-			msgPacket = (Packet1ChatMessage) this.createPacket(1);
-		} catch (ProtocolViolationException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		msgPacket = new Packet1ChatMessage();
 		
 		msgPacket.setVariables(client.getClientTag() + " has left the server.");
 		synchronized (this.getConnectedClients()) {

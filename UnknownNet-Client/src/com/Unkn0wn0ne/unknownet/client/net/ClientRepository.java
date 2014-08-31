@@ -23,6 +23,8 @@ public class ClientRepository {
 		registerPacket(-1, InternalPacket1Kick.class);
 		registerPacket(-2, InternalPacket2Handshake.class);
 		registerPacket(-3, InternalPacket3KeepAlive.class);
+		// TODO: registerPacket(-4, InternalPacket4AdministrativeAction.class);
+		registerPacket(-5, InternalPacket5Hello.class);
 	}
 	
 	/**
