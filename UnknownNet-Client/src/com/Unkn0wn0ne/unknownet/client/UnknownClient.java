@@ -88,10 +88,9 @@ public abstract class UnknownClient implements Runnable{
 	 * @param protocolVersion The version of your custom protocol, used by the server to verify your client is up to date.
 	 * @param useTCP Whether or not the client is using TCP. If set to false, the client uses UDP
 	 */
-	public UnknownClient(boolean useSSL, String protocolVersion, boolean useTCP) {
+	public UnknownClient(boolean useSSL, String protocolVersion) {
 		this.useSSL = useSSL;
 		this.protocolVersion = protocolVersion;
-		this.useTCP = useTCP;
 		
 		this.clientRepository.init();
 		try {
@@ -109,6 +108,7 @@ public abstract class UnknownClient implements Runnable{
 	 * @param loginData A string array full of data that will be sent to the server for authentication purposes. This can be null and what this contains is completely up to your implementation
 	 */
 	public void connectTCP(String ip, int port, String[] loginData) {
+		this.useTCP = true;
 		this.ipAddress = ip;
 		this.port = port;
 		this.loginParams = loginData;
@@ -116,6 +116,7 @@ public abstract class UnknownClient implements Runnable{
 	}
 	
 	public void connectUDP(String ip, int port, int authPort, String[] loginData) {
+		this.useTCP = false;
 		this.ipAddress = ip;
 		this.port = port;
 		this.authPort = authPort;
