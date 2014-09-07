@@ -35,6 +35,7 @@ import javax.net.ssl.SSLServerSocketFactory;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet;
 import com.Unkn0wn0ne.unknownnet.server.net.ServerRepository;
 import com.Unkn0wn0ne.unknownnet.server.net.errors.ProtocolViolationException;
+import com.Unkn0wn0ne.unknownnet.server.util.Protocol;
 import com.Unkn0wn0ne.unknownnet.server.util.UnknownExceptionHandler;
 
 /**
@@ -177,7 +178,7 @@ public abstract class UnknownServer implements Runnable {
 						continue;
 					}
 					logger.info("Internal/UnknownServer: Client connection from '" + socket.getInetAddress().getHostAddress() + "'");
-					handleNewClient(socket, true);
+					handleNewClient(socket, Protocol.TCP);
 				} catch (IOException e) {
 					logger.warning("Internal/UnknownServer: Failed to accept client, an IOException has occurred.");
 				}
@@ -188,7 +189,7 @@ public abstract class UnknownServer implements Runnable {
 			} catch (IOException e) {
 				logger.severe("Internal/UnknownServer: Failed to close server socket, aborting...");
 			}
-		} else {
+		} else if (this.configManager.getProtocol().equalsIgnoreCase("UDP")) {
 			this.logger.info("Internal/UnknownServer: Starting TCP authentication server on port " + this.configManager.getAuthServerPort());
 			
 			ServerSocket serv_socket = null;
@@ -269,11 +270,120 @@ public abstract class UnknownServer implements Runnable {
 			while (!serv_socket.isClosed()) {
 				try {
 					Socket newClient = serv_socket.accept();
-					this.handleNewClient(newClient, false);
+					if (this.numClients >= this.maxClients) {
+						// Server is completely full, silently disconnect the client
+						this.silentlyDisconnect(newClient, "The server is full.");
+						continue;
+					} else if (!this.isAllowingClients) {
+						this.silentlyDisconnect(newClient, "The server is currently not accepting new connections at the moment.");
+						continue;
+					}
+					this.handleNewClient(newClient, Protocol.UDP);
 				} catch (IOException e) {
 
 				}
 		    }
+		} 
+			
+		if (this.configManager.getProtocol().equalsIgnoreCase("dualstack")) {
+			this.logger.info("Internal/UnknownServer: Starting DUALSTACK (TCP + UDP) server on ports [TCP=" + this.configManager.getServerPort() + ";UDP=" + this.configManager.getAuthServerPort() + "]");
+			this.logger.info("Internal/UnknownServer: Starting TCP Server on port: " + this.configManager.getServerPort());
+			
+			ServerSocket serv_socket = null;
+			if (!configManager.useSSL()) {
+				logger.warning("Internal/UnknownServer: Server not configured to use SSL. This can pose as a security issue on production servers");
+				try {
+					serv_socket = new ServerSocket(configManager.getServerPort());
+				} catch (IOException e) {
+					logger.severe("Internal/UnknownServer: Failed to create server socket, an IOException ocurred.");
+					e.printStackTrace();
+					logger.severe("Internal/UnknownServer: Shutting down server.");
+					System.exit(1);
+				}
+				
+			} else {
+				ServerSocketFactory sslSocketFactory = SSLServerSocketFactory.getDefault();
+				try {
+					serv_socket = sslSocketFactory.createServerSocket(configManager.getServerPort());
+				} catch (IOException e) {
+					logger.severe("Internal/UnknownServer: Failed to create SSL server socket, an IOException ocurred.");
+					e.printStackTrace();
+					logger.severe("Internal/UnknownServer: Shutting down server.");
+					System.exit(1);
+				}
+			}
+			
+			
+			new Thread(
+					new Runnable() {
+						@Override
+						public void run() {
+							byte[] buffer;
+							
+							try {
+								UnknownServer.this.uServerSocket = new DatagramSocket(UnknownServer.this.configManager.getServerPort());
+								buffer = new byte[UnknownServer.this.uServerSocket.getReceiveBufferSize()];
+							} catch (SocketException e) {
+								UnknownServer.this.logger.severe("Internal/UnknownServer: Fatal: Failed to create UDP server. A socket exception has occurred.");
+								e.printStackTrace();
+								return;
+							}
+							while (!UnknownServer.this.uServerSocket.isClosed()) {
+								DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+								try {
+									Thread.sleep(10);
+								} catch (InterruptedException e) {
+									
+								}
+								
+								try {
+									UnknownServer.this.uServerSocket.receive(packet);
+									UnknownServer.this.datagramsToBeProcessed.add(packet);
+								} catch (IOException e) {
+								
+								}
+							}
+						}
+						
+					}, "Server-UDP-Receive-Thread").start();
+			
+			new Thread(new Runnable() {
+				@Override
+				public void run() {
+					UnknownServer.this.handleUDPReceiveLoop();
+				}
+				
+			}, "Server-UDP-Director-Thread").start();
+
+			
+			while (!serv_socket.isClosed() && this.isRunning ) {
+				try {
+					Socket socket = serv_socket.accept();
+					socket.setTcpNoDelay(this.configManager.getTCPNoDelay());
+					socket.setKeepAlive(this.configManager.getKeepAlive());
+					socket.setTrafficClass(this.configManager.getTrafficClass());
+					
+					if (this.numClients >= this.maxClients) {
+						// Server is completely full, silently disconnect the client
+						this.silentlyDisconnect(socket, "The server is full.");
+						continue;
+					} else if (!this.isAllowingClients) {
+						this.silentlyDisconnect(socket, "The server is currently not accepting new connections at the moment.");
+						continue;
+					}
+					logger.info("Internal/UnknownServer: Client connection from '" + socket.getInetAddress().getHostAddress() + "'");
+					handleNewClient(socket, Protocol.DUALSTACK);
+				} catch (IOException e) {
+					logger.warning("Internal/UnknownServer: Failed to accept client, an IOException has occurred.");
+				}
+			}
+			
+			try {
+				serv_socket.close();
+			} catch (IOException e) {
+				logger.severe("Internal/UnknownServer: Failed to close server socket, aborting...");
+			}
+				
 		}
 	}
 
@@ -386,14 +496,18 @@ public abstract class UnknownServer implements Runnable {
 	 * Handles a new socket connection and starts the various tasks for preparing the client to be authenticated
 	 * @param socket 
 	 */
-	private void handleNewClient(Socket socket, boolean isTCP) {
+	private void handleNewClient(Socket socket, Protocol protocol) {
 		
 		UnknownClient client = null;
 		
-		if (isTCP) {
+		if (protocol == Protocol.TCP) {
 			client = new TCPClient(socket, this);
 		} else {
-			client = new UDPClient(socket, this);
+			if (protocol == Protocol.UDP) {
+				client = new UDPClient(socket, this);
+			} else {
+				client = new DualStackClient(socket, this);
+			}
 		}
 		
 		if (!serverGuard.verifyClient(client)) {

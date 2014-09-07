@@ -17,6 +17,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+
 public class InternalPacket2Handshake extends Packet{
 
 	private boolean accepted = false;
@@ -68,6 +69,11 @@ public class InternalPacket2Handshake extends Packet{
 	
 	public String[] getLoginData() {
 		return this.loginParams;
+	}
+
+	@Override
+	public PACKET_PROTOCOL getProtocol() {
+		return PACKET_PROTOCOL.TCP;
 	}
 
 }

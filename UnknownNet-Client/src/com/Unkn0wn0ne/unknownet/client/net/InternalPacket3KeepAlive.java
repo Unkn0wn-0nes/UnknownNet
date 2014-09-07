@@ -44,4 +44,9 @@ public class InternalPacket3KeepAlive extends Packet{
 		return PACKET_PRIORITY.INTERNAL;
 	}
 
+	@Override
+	public PACKET_PROTOCOL getProtocol() {
+		return PACKET_PROTOCOL.TCP;
+	}
+
 }

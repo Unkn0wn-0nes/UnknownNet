@@ -17,6 +17,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+
 public class InternalPacket3KeepAlive extends Packet {
 
 	@Override
@@ -42,6 +43,11 @@ public class InternalPacket3KeepAlive extends Packet {
 	@Override
 	public PACKET_PRIORITY getPriority() {
 		return PACKET_PRIORITY.INTERNAL;
+	}
+	
+	@Override
+	public PACKET_PROTOCOL getProtocol() {
+		return PACKET_PROTOCOL.TCP;
 	}
 
 }

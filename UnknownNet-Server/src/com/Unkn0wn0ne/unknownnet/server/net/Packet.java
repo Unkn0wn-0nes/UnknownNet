@@ -17,6 +17,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+
 public abstract class Packet {
 	
 	public abstract int getId();
@@ -29,9 +30,17 @@ public abstract class Packet {
 	
 	public abstract PACKET_PRIORITY getPriority();
 	
+	public abstract PACKET_PROTOCOL getProtocol();
+	
 	public void _write(DataOutputStream dataStream) throws IOException{
 		dataStream.writeInt(this.getId());
 		this.write(dataStream);
+	}
+	
+	public enum PACKET_PROTOCOL {
+		TCP,
+		
+		UDP;
 	}
 	
 	public enum PACKET_PRIORITY {

@@ -55,6 +55,8 @@ public abstract class Packet {
 	 */
 	public abstract PACKET_PRIORITY getPriority();
 	
+	public abstract PACKET_PROTOCOL getProtocol();
+	
 	/**
 	 * Internal method. Do not call.
 	 * Used by UnknownNet internals to write the packet id out before writing the data so the server can make sense of it.
@@ -62,6 +64,12 @@ public abstract class Packet {
 	public void _write(DataOutputStream dataStream) throws IOException{
 		dataStream.writeInt(this.getId());
 		this.write(dataStream);
+	}
+	
+	public enum PACKET_PROTOCOL {
+		TCP,
+		
+		UDP
 	}
 	
 	/**

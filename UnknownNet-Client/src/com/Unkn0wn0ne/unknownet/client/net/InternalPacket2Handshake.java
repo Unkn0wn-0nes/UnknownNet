@@ -64,4 +64,9 @@ public class InternalPacket2Handshake extends Packet{
 	public boolean getResponse() {
 		return this.response;
 	}
+
+	@Override
+	public PACKET_PROTOCOL getProtocol() {
+		return PACKET_PROTOCOL.TCP;
+	}
 }

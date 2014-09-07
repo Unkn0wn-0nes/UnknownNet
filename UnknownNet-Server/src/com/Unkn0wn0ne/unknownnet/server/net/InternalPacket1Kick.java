@@ -17,6 +17,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+
 public class InternalPacket1Kick extends Packet{
 
 	private String msg;
@@ -49,4 +50,10 @@ public class InternalPacket1Kick extends Packet{
 	public String getMessage() {
 		return this.msg;
 	}
+	
+	@Override
+	public PACKET_PROTOCOL getProtocol() {
+		return PACKET_PROTOCOL.TCP;
+	}
+
 }

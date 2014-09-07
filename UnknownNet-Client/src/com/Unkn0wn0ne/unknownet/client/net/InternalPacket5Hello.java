@@ -44,4 +44,9 @@ public class InternalPacket5Hello extends Packet{
 		return PACKET_PRIORITY.INTERNAL;
 	}
 
+	@Override
+	public PACKET_PROTOCOL getProtocol() {
+		return PACKET_PROTOCOL.UDP;
+	}
+
 }

@@ -20,11 +20,12 @@ import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket1Kick;
 import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket2Handshake;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet;
 import com.Unkn0wn0ne.unknownnet.server.net.errors.ProtocolViolationException;
+import com.Unkn0wn0ne.unknownnet.server.util.Protocol;
 
 public class TCPClient extends UnknownClient {
 
 	protected TCPClient(Socket socket, UnknownServer server) {
-		super(socket, server, true);
+		super(socket, server, Protocol.TCP);
 	}
 
 	@Override

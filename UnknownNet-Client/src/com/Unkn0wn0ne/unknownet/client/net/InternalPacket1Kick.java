@@ -51,4 +51,9 @@ public class InternalPacket1Kick extends Packet{
 		return this.msg;
 	}
 
+	@Override
+	public PACKET_PROTOCOL getProtocol() {
+		return PACKET_PROTOCOL.TCP;
+	}
+
 }

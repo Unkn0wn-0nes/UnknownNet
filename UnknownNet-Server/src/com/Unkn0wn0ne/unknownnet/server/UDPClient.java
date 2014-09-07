@@ -25,6 +25,7 @@ import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket1Kick;
 import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket2Handshake;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet;
 import com.Unkn0wn0ne.unknownnet.server.net.errors.ProtocolViolationException;
+import com.Unkn0wn0ne.unknownnet.server.util.Protocol;
 
 public class UDPClient extends UnknownClient {
 
@@ -32,7 +33,7 @@ public class UDPClient extends UnknownClient {
 	private int hellosReceived = 0;
 	
 	protected UDPClient(Socket socket, UnknownServer server) {
-		super(socket, server, false);
+		super(socket, server, Protocol.UDP);
 	}
 
 	@Override

@@ -54,15 +54,15 @@ public class ConfigurationManager {
 			Properties sProps = new Properties();
 			sProps.load(new FileInputStream(config));
 			
-			this.serverPort = Integer.parseInt(sProps.getProperty("server.port", "4334"));
-			this.protocolVersion = sProps.getProperty("server.protocolversion", "unknownserver-dev");
-			this.useSSL = Boolean.parseBoolean(sProps.getProperty("server.useSSL", "false"));
-			this.maxClients = Integer.parseInt(sProps.getProperty("server.maxClients", "1000"));
-			this.protocol = sProps.getProperty(sProps.getProperty("server.protocol", "TCP"));
+			this.serverPort = Integer.parseInt(sProps.getProperty("server.port", "4334").trim());
+			this.protocolVersion = sProps.getProperty("server.protocolversion", "unknownserver-dev").trim();
+			this.useSSL = Boolean.parseBoolean(sProps.getProperty("server.useSSL", "false").trim());
+			this.maxClients = Integer.parseInt(sProps.getProperty("server.maxClients", "1000").trim());
+			this.protocol = sProps.getProperty(sProps.getProperty("server.protocol", "TCP").trim());
 			
-			this.TCP_NODELAY = Boolean.parseBoolean(sProps.getProperty("tcp.nodelay", "true"));
-			this.IP_TOS = Integer.parseInt(sProps.getProperty("tcp.iptos", "0x10"));
-			this.KEEP_ALIVE = Boolean.parseBoolean(sProps.getProperty("tcp.keepalive", "true"));
+			this.TCP_NODELAY = Boolean.parseBoolean(sProps.getProperty("tcp.nodelay", "true").trim());
+			this.IP_TOS = Integer.parseInt(sProps.getProperty("tcp.iptos", "0x10").trim());
+			this.KEEP_ALIVE = Boolean.parseBoolean(sProps.getProperty("tcp.keepalive", "true").trim());
 			
 			this.authServerPort = Integer.parseInt(sProps.getProperty("udp.authport", "4333"));
 			logger.info("Internal/ConfigurationManager: Successfully loaded configuration file");
@@ -81,6 +81,12 @@ public class ConfigurationManager {
 			fWriter.write("# These where automatically generated. Feel free to modify them to suit your needs. \n");
 			
 			fWriter.write("# General Settings \n");
+			fWriter.write("# server.port - Port the server's client acceptor runs on. \n");
+			fWriter.write("# server.protocolversion - A unique string that both your client and server must have to verify that the protocol is up to date. \n");
+			fWriter.write("# server.useSSL - Use SSL over TCP to protect user information and help prevent data stream manipulation. \n");
+			fWriter.write("# server.maxClients - The number of clients that can be concurrently connected to the server. \n");
+			fWriter.write("# server.protocol - The protocol that the server will be using. This can ethier be TCP or UDP or dualstack. \n");
+			
 			fWriter.write("server.port=4334 \n");
 			fWriter.write("server.protocolversion=unknownserver-dev \n");
 			fWriter.write("server.useSSL=false \n");
@@ -90,7 +96,7 @@ public class ConfigurationManager {
 			fWriter.write("# TCP Connection Specific Settings \n");
 			fWriter.write("tcp.nodelay=true \n");
 			fWriter.write("tcp.iptos=0x10 \n");
-			fWriter.write("tcp.keepalive=true");
+			fWriter.write("tcp.keepalive=true \n");
 			
 			fWriter.write("# UDP specific settings \n");
 			fWriter.write("udp.authport=4333 \n");

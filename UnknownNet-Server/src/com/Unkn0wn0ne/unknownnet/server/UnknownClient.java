@@ -30,6 +30,7 @@ import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket3KeepAlive;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet.PACKET_PRIORITY;
 import com.Unkn0wn0ne.unknownnet.server.net.errors.ProtocolViolationException;
+import com.Unkn0wn0ne.unknownnet.server.util.Protocol;
 
 /**
  * UnknownClient - A client object in the UnknownNet network.
@@ -67,7 +68,7 @@ public abstract class UnknownClient implements Runnable {
 	protected int clientId;
 	
 	protected Queue<Packet> datagramsToBeProcessed = new LinkedList<Packet>();
-	private boolean isTCP = false;
+	private Protocol protocol = null;
 	
 	protected DatagramPacket datagram = null;
 	private InetAddress addr = null;
@@ -77,19 +78,21 @@ public abstract class UnknownClient implements Runnable {
 	protected float sendKeepAlives = 0;
 	protected float receivedKeepAlives = 0;
 	
+	protected int privilegeLevel = -1000;
+	
 	/**
 	 * Internal constructor. Should not be called
 	 * @param socket
 	 * @param server
-	 * @param proto
+	 * @param protocol
 	 */
-	protected UnknownClient(Socket socket, UnknownServer server, boolean proto) {
-		this.isTCP = proto;
+	protected UnknownClient(Socket socket, UnknownServer server, Protocol protocol) {
+		this.protocol = protocol;
 		this.connection = socket;
 		this.server = server;
 		this.addr = connection.getInetAddress();
 		
-		if (!isTCP) {
+		if (this.protocol == Protocol.UDP) {
 			byte[] buffer;
 			try {
 				buffer = new byte[socket.getReceiveBufferSize()];
@@ -206,6 +209,14 @@ public abstract class UnknownClient implements Runnable {
 		return this.clientState;
 	}
 
+	public int getPrivilegeLevel() {
+		return this.privilegeLevel;
+	}
+	
+	public void setPrivilegeLevel(int newLevel) {
+		this.privilegeLevel = newLevel;
+	}
+	
 	/**
 	 * Internal method. Do not call
 	 * Starts the client thread.

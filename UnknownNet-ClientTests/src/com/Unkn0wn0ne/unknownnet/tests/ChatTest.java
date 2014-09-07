@@ -16,33 +16,38 @@ package com.Unkn0wn0ne.unknownnet.tests;
 import com.Unkn0wn0ne.unknownet.client.UnknownClient;
 import com.Unkn0wn0ne.unknownet.client.errors.ProtocolViolationException;
 import com.Unkn0wn0ne.unknownet.client.net.Packet;
+import com.Unkn0wn0ne.unknownet.client.util.Protocol;
 
 public class ChatTest extends UnknownClient{
 
 	public ChatTest() {
-		// We our not using SSL for this example, and our protocol version is chatserv-example-1.0
-		super(false, "chatserv-example-1.0");
+		// We our not using SSL for this example, and our protocol version is unknownserv-dev
+		super(false, "unknownserver-dev");
 		// Register our packet
 		this.registerPacket(1, Packet1ChatMessage.class);
 		
 		// Get our connection information
 		String ip = "";
 		int port = 4334;
-		boolean isTCP;
+		Protocol proto;
 		int aPort = 4333;
 		
 		System.out.println("Enter chat server ip: ");
 		ip = System.console().readLine();
 		System.out.println("Enter chat server port: ");
 		port = Integer.parseInt(System.console().readLine());
-		System.out.println("Use TCP? (y/n): " );
+		System.out.println("Use TCP, UDP, or Dualstack: " );
 		String response = System.console().readLine();
-		if (response.equalsIgnoreCase("y")) {
-			isTCP = true;
-		} else {
-			isTCP = false;
+		if (response.equalsIgnoreCase("tcp")) {
+			proto = Protocol.TCP;
+		} else if (response.equalsIgnoreCase("udp")){
+			proto = Protocol.UDP;
 			System.out.println("Enter UDP authserver port: ");
 		    aPort = Integer.parseInt(System.console().readLine());
+		} else {
+			proto = Protocol.DUALSTACK;
+			System.out.println("Enter udp port: ");
+			aPort = Integer.parseInt(System.console().readLine());
 		}
 		
 		System.out.println("Enter username: ");
@@ -51,10 +56,12 @@ public class ChatTest extends UnknownClient{
 		String[] secretLoginCode = new String[2];
 		secretLoginCode[0] = "Password";
 		secretLoginCode[1] = msg;
-		if (isTCP) {
+		if (proto == Protocol.TCP) {
 			connectTCP(ip, port, secretLoginCode);
-		} else {
+		} else if (proto == Protocol.UDP){
 			this.connectUDP(ip, port, aPort, secretLoginCode);
+		} else {
+			this.connectDualstack(ip, port, aPort, secretLoginCode);
 		}
 		mainLoop();
 	}

@@ -52,4 +52,9 @@ public class Packet1ChatMessage extends Packet{
 		return this.rmsg;
 	}
 
+	@Override
+	public PACKET_PROTOCOL getProtocol() {
+		return PACKET_PROTOCOL.TCP;
+	}
+
 }
