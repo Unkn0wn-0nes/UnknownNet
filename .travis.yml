@@ -3,4 +3,6 @@ jdk:
   - oraclejdk8
   - oraclejdk7
   - openjdk7
-install: ./build-unknownnet.sh
+install: 
+chmod +x build-unknownnet.sh
+./build-unknownnet.sh
