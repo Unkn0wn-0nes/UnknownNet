@@ -4,6 +4,8 @@ UnknownNet is currently in heavy development and is not suitable for production 
 UnknownNet
 ==========
 
+Build Status: ![](https://travis-ci.org/Unkn0wn-0nes/UnknownNet.svg)
+
 UnknownNet is a Java-based networking architecture wrapping around the TCP and UDP networking protocols, primiarly focusing on game servers, but can be used for other types of software. It contains a client library for clients to use and a server base for you to build a game server over without dealing with the pesky networking code. 
 
 Feel free to join the (very) small community over at irc.freenode.net, 6667 Channel #UnknownNet for discussions and help
