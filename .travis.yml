@@ -1,7 +1,6 @@
 language: java
 jdk:
   - oraclejdk8
-  - oraclejdk7
-  - openjdk7
 before_install: chmod +x build-unknownnet.sh
 install: ./build-unknownnet.sh
+test: echo Skipping unit testing for now.
