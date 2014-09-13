@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.ConsoleHandler;
+import java.util.logging.Filter;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 import javax.net.ServerSocketFactory;
@@ -69,7 +71,6 @@ public abstract class UnknownServer implements Runnable {
 	 * Creates an UnknownServer with the main thread loop being called every 50 milliseconds
 	 */
 	public UnknownServer() {
-		this.logger.addHandler(new ConsoleHandler());
 		this.logger.addHandler(new FileLogHandler());
 		Thread.setDefaultUncaughtExceptionHandler(new UnknownExceptionHandler(this));
 	}
@@ -575,6 +576,7 @@ public abstract class UnknownServer implements Runnable {
 	 */
 	protected void handleClientLeaving(UnknownClient unknownClient) {
 		this.numClients--;
+		unknownClient.shutdown();
 		synchronized (this.connectedClients) {
 			this.connectedClients.remove(unknownClient);
 		}

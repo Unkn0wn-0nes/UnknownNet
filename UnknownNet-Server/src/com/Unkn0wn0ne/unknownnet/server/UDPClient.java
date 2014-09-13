@@ -209,4 +209,9 @@ public class UDPClient extends UnknownClient {
 		this.datagram.setLength(this.datagram.getData().length);
 		this.server.sendDatagram(this.datagram);
 	}
+
+	@Override
+	protected void shutdown() {
+		this.hasBeenEjected = true;
+	}
 }

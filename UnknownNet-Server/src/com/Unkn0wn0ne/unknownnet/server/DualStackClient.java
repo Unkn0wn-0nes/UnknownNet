@@ -115,7 +115,7 @@ public class DualStackClient extends UnknownClient {
 		this.udpWriter = new ByteArrayOutputStream();
 		this.udpOutputStream = new DataOutputStream(this.udpWriter);
 		
-		while (this.connection.isConnected()) {
+		while (!this.connection.isClosed()) {
 			try {
 				Thread.sleep(25);
 			} catch (InterruptedException e) {
@@ -206,5 +206,14 @@ public class DualStackClient extends UnknownClient {
 		this.datagram.setData(this.udpWriter.toByteArray());
 		this.datagram.setLength(this.datagram.getData().length);
 		this.server.sendDatagram(this.datagram);
+	}
+
+	@Override
+	protected void shutdown() {
+		try {
+			this.connection.close();
+		} catch (IOException e) {
+			
+		}
 	}
 }

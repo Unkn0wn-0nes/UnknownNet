@@ -29,10 +29,10 @@ public class ConfigurationManager {
 	
 	// TCP settings 
 	private boolean TCP_NODELAY = true; 
-	private int IP_TOS = 0x10;
+	private int IP_TOS = 10;
 	private boolean KEEP_ALIVE = true; // Note: Temporary, I just have to patch the client
 	
-	private String protocol = "UDP";
+	private String protocol = "DUALSTACK";
 	
 	// UDP settings
 	private int authServerPort = 4333;
@@ -44,7 +44,7 @@ public class ConfigurationManager {
 			logger.severe("Internal/ConfigurationManager: These defaults could preset security and/or functionality risks depending on your implementation. UnknownNet-ServerGuard will be activated to monitor suspicious activity.");
 			generateConfig(config);
 		} else {
-			loadConfig(config);
+			//loadConfig(config);
 		}
 	}
 	
@@ -95,7 +95,7 @@ public class ConfigurationManager {
 			
 			fWriter.write("# TCP Connection Specific Settings \n");
 			fWriter.write("tcp.nodelay=true \n");
-			fWriter.write("tcp.iptos=0x10 \n");
+			fWriter.write("tcp.iptos=10 \n");
 			fWriter.write("tcp.keepalive=true \n");
 			
 			fWriter.write("# UDP specific settings \n");

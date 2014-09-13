@@ -312,4 +312,7 @@ public abstract class UnknownClient implements Runnable {
 	protected abstract void authenticateClient() throws IOException, ProtocolViolationException;
 	
 	protected abstract void handleConnection();
+
+
+	protected abstract void shutdown();
 }

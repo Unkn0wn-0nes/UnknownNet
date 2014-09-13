@@ -119,7 +119,7 @@ public class TCPClient extends UnknownClient {
 
 	@Override
 	protected void handleConnection() {
-		while (this.connection.isConnected()) {
+		while (!this.connection.isClosed()) {
 			try {
 				Thread.sleep(25);
 			} catch (InterruptedException e) {
@@ -169,5 +169,13 @@ public class TCPClient extends UnknownClient {
 				}
 			}
 		} 
+	}
+
+	@Override
+	protected void shutdown() {
+		try {
+			this.connection.close();
+		} catch (IOException e) {
+		}
 	}
 }

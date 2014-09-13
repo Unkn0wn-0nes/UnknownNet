@@ -93,13 +93,6 @@ public class FileLogHandler extends Handler implements Runnable{
 			}
 		}
 		
-		while (!this.logs.isEmpty()) {
-			try {
-				this.outputStream.write((this.logs.poll() + "\n").getBytes());
-			} catch (IOException e) {
-				
-			}
-		}
 			
 		try {
 			this.outputStream.close();
