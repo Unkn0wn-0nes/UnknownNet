@@ -1,6 +1,8 @@
 language: java
 jdk:
   - oraclejdk8
+notifications:
+  irc: "chat.freenode.net#UnknownNet"
 before_install: chmod +x build-unknownnet.sh
 install: ./build-unknownnet.sh
 script: echo Skipping unit testing for now.
