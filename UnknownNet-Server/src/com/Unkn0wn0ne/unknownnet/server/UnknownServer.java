@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.ConsoleHandler;
-import java.util.logging.Filter;
+import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
@@ -66,13 +66,38 @@ public abstract class UnknownServer implements Runnable {
 	private Queue<DatagramPacket> datagramsToBeProcessed = new LinkedList<DatagramPacket>();
 	
 	private DatagramSocket uServerSocket = null;
-	
+
 	/**
 	 * Creates an UnknownServer with the main thread loop being called every 50 milliseconds
 	 */
 	public UnknownServer() {
+		this.logger.setUseParentHandlers(false);
+		ConsoleHandler cHandler = new ConsoleHandler();
+		Formatter formatter = new Formatter() {
+
+			@Override
+			public String format(LogRecord record) {
+				return "[" + record.getLevel().getName() + "] " + record.getMessage() + "\n";
+			}
+			
+		};
+		cHandler.setFormatter(formatter);
+		this.logger.addHandler(cHandler);
 		this.logger.addHandler(new FileLogHandler());
 		Thread.setDefaultUncaughtExceptionHandler(new UnknownExceptionHandler(this));
+		
+		Runnable runnable = new Runnable() {
+
+			@Override
+			public void run() {
+				logger.info("Internal/UnknownServer: Caught shutdown signal, shutting down server.");
+				if (isRunning) {
+					shutdown(false);
+				}
+			}
+		};
+		
+		Runtime.getRuntime().addShutdownHook(new Thread(runnable, "Shutdown-Hook-Thread."));
 	}
 	
 	/**
@@ -677,9 +702,12 @@ public abstract class UnknownServer implements Runnable {
 	}
 
 	public void shutdown(boolean b) {
+		this.isRunning = false;
 		synchronized (this.connectedClients) {
-			for (UnknownClient c : this.connectedClients) {
-				c.eject("Server is shutting down.", true);
+			if (this.connectedClients.size() > 0) {
+				for (UnknownClient c : this.connectedClients) {
+					c.eject("Server is shutting down.", true);
+				}
 			}
 		}
 		if (b) {
@@ -687,5 +715,9 @@ public abstract class UnknownServer implements Runnable {
 		} else {
 			System.exit(0);
 		}
+	}
+	
+	public void setMainThreadSleep(long time) {
+		this.sleep = time;
 	}
 }

@@ -110,7 +110,7 @@ public class ServerGuard {
 		File file = new File("banned-ips.dat");
 		try {
 			FileWriter fWriter = new FileWriter(file);
-			fWriter.write(ip + "\n");
+			fWriter.append(ip + "\n");
 			fWriter.flush();
 			fWriter.close();
 		} catch (IOException e) {

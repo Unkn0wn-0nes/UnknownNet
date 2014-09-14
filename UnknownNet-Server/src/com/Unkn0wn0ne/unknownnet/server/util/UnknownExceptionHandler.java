@@ -51,6 +51,9 @@ public class UnknownExceptionHandler implements UncaughtExceptionHandler {
 			logger.severe("Internal/UnknownExceptionHandler: System is not recoverable, shutting down server...");
 			this.server.shutdown(true);
 			return;
+		} else if (arg0.getName().equalsIgnoreCase("Shutdown-Hook-Thread.")) {
+			logger.severe("Internal/UnknownExceptionHandler: System is recoverable. Exception on shutdown thread. Ignoring.");
+			return;
 		} else {
 			logger.severe("Internal/UnknownExceptionHandler: Thread does not belong to UnknownNet. Keeping rest of the server alive.");
 		}

@@ -44,7 +44,7 @@ public class ConfigurationManager {
 			logger.severe("Internal/ConfigurationManager: These defaults could preset security and/or functionality risks depending on your implementation. UnknownNet-ServerGuard will be activated to monitor suspicious activity.");
 			generateConfig(config);
 		} else {
-			//loadConfig(config);
+			loadConfig(config);
 		}
 	}
 	
@@ -58,13 +58,13 @@ public class ConfigurationManager {
 			this.protocolVersion = sProps.getProperty("server.protocolversion", "unknownserver-dev").trim();
 			this.useSSL = Boolean.parseBoolean(sProps.getProperty("server.useSSL", "false").trim());
 			this.maxClients = Integer.parseInt(sProps.getProperty("server.maxClients", "1000").trim());
-			this.protocol = sProps.getProperty(sProps.getProperty("server.protocol", "TCP").trim());
+			this.protocol = sProps.getProperty("server.protocol", "TCP").trim();
 			
 			this.TCP_NODELAY = Boolean.parseBoolean(sProps.getProperty("tcp.nodelay", "true").trim());
-			this.IP_TOS = Integer.parseInt(sProps.getProperty("tcp.iptos", "0x10").trim());
+			this.IP_TOS = Integer.parseInt(sProps.getProperty("tcp.iptos", "10").trim());
 			this.KEEP_ALIVE = Boolean.parseBoolean(sProps.getProperty("tcp.keepalive", "true").trim());
 			
-			this.authServerPort = Integer.parseInt(sProps.getProperty("udp.authport", "4333"));
+			this.authServerPort = Integer.parseInt(sProps.getProperty("udp.authport", "4333").trim());
 			logger.info("Internal/ConfigurationManager: Successfully loaded configuration file");
 		} catch (Exception e) {
 			logger.severe("Internal/ConfigurationManager: Failed to load configuration file, an Exception has occurred. Using defaults");
@@ -77,31 +77,31 @@ public class ConfigurationManager {
 			config.createNewFile();
 			
 			FileWriter fWriter = new FileWriter(config);
-			fWriter.write("# UnknownNet Server Configuration Files. \n");
+			fWriter.write("# UnknownNet Server Configuration Files.\n");
 			fWriter.write("# These where automatically generated. Feel free to modify them to suit your needs. \n");
 			
-			fWriter.write("# General Settings \n");
+			fWriter.write("# General Settings\n");
 			fWriter.write("# server.port - Port the server's client acceptor runs on. \n");
 			fWriter.write("# server.protocolversion - A unique string that both your client and server must have to verify that the protocol is up to date. \n");
 			fWriter.write("# server.useSSL - Use SSL over TCP to protect user information and help prevent data stream manipulation. \n");
 			fWriter.write("# server.maxClients - The number of clients that can be concurrently connected to the server. \n");
 			fWriter.write("# server.protocol - The protocol that the server will be using. This can ethier be TCP or UDP or dualstack. \n");
 			
-			fWriter.write("server.port=4334 \n");
-			fWriter.write("server.protocolversion=unknownserver-dev \n");
-			fWriter.write("server.useSSL=false \n");
-			fWriter.write("server.maxClients=1000 \n");
-			fWriter.write("server.protocol=TCP \n");
+			fWriter.write("server.port=4334\n");
+			fWriter.write("server.protocolversion=unknownserver-dev\n");
+			fWriter.write("server.useSSL=false\n");
+			fWriter.write("server.maxClients=1000\n");
+			fWriter.write("server.protocol=TCP\n");
 			
-			fWriter.write("# TCP Connection Specific Settings \n");
-			fWriter.write("tcp.nodelay=true \n");
-			fWriter.write("tcp.iptos=10 \n");
-			fWriter.write("tcp.keepalive=true \n");
+			fWriter.write("# TCP Connection Specific Settings\n");
+			fWriter.write("tcp.nodelay=true\n");
+			fWriter.write("tcp.iptos=10\n");
+			fWriter.write("tcp.keepalive=true\n");
 			
-			fWriter.write("# UDP specific settings \n");
-			fWriter.write("udp.authport=4333 \n");
+			fWriter.write("# UDP specific settings\n");
+			fWriter.write("udp.authport=4333\n");
 			
-			fWriter.write("# END OF CONFIGURATION FILE. \n");
+			fWriter.write("# END OF CONFIGURATION FILE.\n");
 			fWriter.flush();
 			fWriter.close();
 		} catch (Exception e) {
