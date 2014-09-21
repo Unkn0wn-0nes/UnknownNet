@@ -17,16 +17,18 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+import com.Unkn0wn0ne.unknownnet.server.util.PoolableObject;
 
-public abstract class Packet {
+
+public abstract class Packet implements PoolableObject{
+	
+	private int numClients = 1;
 	
 	public abstract int getId();
 	
 	public abstract void write(DataOutputStream dataStream) throws IOException;
 	
 	public abstract void read(DataInputStream dataStream) throws IOException;
-	
-	public abstract void setVariables(Object... vars);
 	
 	public abstract PACKET_PRIORITY getPriority();
 	
@@ -36,6 +38,14 @@ public abstract class Packet {
 		dataStream.writeInt(this.getId());
 		this.write(dataStream);
 	}
+	
+	@Override
+	public void resetVariables() {
+		this.numClients = 1;
+		this.clearVariables();
+	}
+	
+	public abstract void clearVariables();
 	
 	public enum PACKET_PROTOCOL {
 		TCP,
@@ -50,5 +60,17 @@ public abstract class Packet {
 		HIGH,
 		
 		NORMAL;
+	}
+	
+	public void setRecipentCount(int numClients) {
+		synchronized (this) {
+			this.numClients = numClients;
+		}
+	}
+	
+	public int getRecipentCount() {
+		synchronized (this) {
+			return this.numClients;
+		}
 	}
 }

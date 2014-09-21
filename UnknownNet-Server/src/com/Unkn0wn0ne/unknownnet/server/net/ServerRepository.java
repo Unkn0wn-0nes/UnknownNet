@@ -17,11 +17,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import com.Unkn0wn0ne.unknownnet.server.net.errors.ProtocolViolationException;
+import com.Unkn0wn0ne.unknownnet.server.util.ObjectPool;
 
 public class ServerRepository {
 
 	private Logger logger = Logger.getLogger("UnknownNet");
-	private ConcurrentHashMap<Integer, Class<? extends Packet>> registeredPackets = new ConcurrentHashMap<Integer, Class<? extends Packet>>();
+	private ConcurrentHashMap<Integer, ObjectPool<Packet>> registeredPacketPools = new ConcurrentHashMap<Integer, ObjectPool<Packet>>();
+	
 	
 	public void init() {
 		logger.info("Internal/ServerRepository: Init");
@@ -34,16 +36,10 @@ public class ServerRepository {
 	
 	public void registerPacket(int id, Class<? extends Packet> packet){
 		logger.info("Internal/ServerRepository: Registering packet with id '" + id + "' to class '" + packet.getName() + "'");
-		this.registeredPackets.put(id, packet);
-	}
-	
-	public Packet getPacket(int id) throws ProtocolViolationException {
-		if (this.registeredPackets.get(id) == null) {
-			logger.severe("Internal/ServerRepository: Protocol security violation, attempted to access a packet with non-existant id '" + id + "' ejecting client");
-			throw new ProtocolViolationException("A protocol security violation has occurred. Attempted to access a packet with a non-existant id '" + id + "'");
-		}
 		try {
-			return this.registeredPackets.get(id).newInstance();
+			ObjectPool<Packet> pool = new ObjectPool<Packet>();
+			pool.setType(packet.newInstance());
+			this.registeredPacketPools.put(id, pool);
 		} catch (InstantiationException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -51,6 +47,26 @@ public class ServerRepository {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+	
+	public Packet getPacket(int id) throws ProtocolViolationException {
+		if (this.registeredPacketPools.get(id) == null) {
+			logger.severe("Internal/ServerRepository: Protocol security violation, attempted to access a packet with non-existant id '" + id + "' ejecting client");
+			throw new ProtocolViolationException("A protocol security violation has occurred. Attempted to access a packet with a non-existant id '" + id + "'");
+		}
+		try {
+			return (Packet)this.registeredPacketPools.get(id).getObject();
+		} catch (InstantiationException e) {
+			this.logger.severe("Internal/ServerRepository: Failed to allocate packet id '" + id + "', an InstantiationException has occurrred.");
+			e.printStackTrace();
+		} catch (IllegalAccessException e) {
+			this.logger.severe("Internal/ServerRepository: Failed to allocate packet id '" + id + "', an IllegalAccessException has occurrred.");
+			e.printStackTrace();
+		}
 		return null;
+	}
+	
+	public void freePacket(Packet packet) {
+		this.registeredPacketPools.get(packet.getId()).freeObject(packet);
 	}
 }

@@ -60,7 +60,6 @@ public abstract class UnknownClient implements Runnable {
 	protected Queue<Packet> highPriorityToBeSent = new LinkedList<Packet>();
 	protected Queue<Packet> lowPriorityToBeSent = new LinkedList<Packet>();
 	
-	protected Packet packet = null;
 	protected int missedKeepAlives = -1;
 	private InternalPacket3KeepAlive keepAlivePacket = null;
 	
@@ -92,7 +91,7 @@ public abstract class UnknownClient implements Runnable {
 		this.server = server;
 		this.addr = connection.getInetAddress();
 		
-		if (this.protocol == Protocol.UDP) {
+		if (this.protocol == Protocol.UDP || this.protocol == Protocol.DUALSTACK) {
 			byte[] buffer;
 			try {
 				buffer = new byte[socket.getReceiveBufferSize()];
@@ -315,4 +314,9 @@ public abstract class UnknownClient implements Runnable {
 
 
 	protected abstract void shutdown();
+
+
+	public int getUDP() {
+		return this.datagram.getPort();
+	}
 }

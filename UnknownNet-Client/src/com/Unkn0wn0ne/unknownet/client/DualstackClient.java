@@ -120,7 +120,6 @@ class DualstackClient implements IClientImplementation{
 			this.uClient.queuePacket(hello);
 		}
 		
-		Packet p2 = null;
 		
 		while (true) {
 			try {
@@ -131,7 +130,7 @@ class DualstackClient implements IClientImplementation{
 			
 			this.uClient.udpWriter.reset();
 			while (!this.uClient.highsToBeSent.isEmpty()) {
-				p2 = this.uClient.highsToBeSent.poll();
+				Packet p2 = this.uClient.highsToBeSent.poll();
 				if (p2.getProtocol() == PACKET_PROTOCOL.TCP) {
 					try {
 						p2._write(doStream);
@@ -141,10 +140,11 @@ class DualstackClient implements IClientImplementation{
 				} else {
 					this.sendUdp(p2);
 				}
+				this.uClient.clientRepository.freePacket(p2);
 			}
 			
 			while (!this.uClient.internalsToBeSent.isEmpty()) {
-				p2 = this.uClient.internalsToBeSent.poll();
+				Packet p2 = this.uClient.internalsToBeSent.poll();
 				if (p2.getProtocol() == PACKET_PROTOCOL.TCP) {
 					try {
 						p2._write(doStream);
@@ -154,10 +154,11 @@ class DualstackClient implements IClientImplementation{
 				} else {
 					this.sendUdp(p2);
 				}
+				this.uClient.clientRepository.freePacket(p2);
 			}
 			
 			while (!this.uClient.lowsToBeSent.isEmpty()) {
-				p2 = this.uClient.lowsToBeSent.poll();
+				Packet p2 = this.uClient.lowsToBeSent.poll();
 				if (p2.getProtocol() == PACKET_PROTOCOL.TCP) {
 					try {
 						p2._write(doStream);
@@ -167,6 +168,7 @@ class DualstackClient implements IClientImplementation{
 				} else {
 					this.sendUdp(p2);
 				}
+				this.uClient.clientRepository.freePacket(p2);
 			}
 		}
 	  }
@@ -176,16 +178,24 @@ class DualstackClient implements IClientImplementation{
 	 * This loop runs in a separate thread and handles reading the packet ids from the stream and than calling handlePacketReceive
 	 */
 	protected void doReadLoop() {
-		while (this.uClient.socket.isConnected()) {
+		while (!this.uClient.socket.isClosed()) {
 			try {
 				if (this.diStream.available() > 0) {
 					int id = this.diStream.readInt();
 					this.uClient.handlePacketReceive(id, this.diStream);
 				}
 			} catch (IOException e) {
-				// TODO
-			} catch (ProtocolViolationException e) {
+				this.uClient.logger.severe("Internal/DualStackClient: IOException occurred while reading from TCP stream, disconnecting...");
 				e.printStackTrace();
+				this.uClient.shouldDisconnect = true;
+				this.uClient.onClientKicked("IOException has occurred while reading from TCP stream.");
+				return;
+			} catch (ProtocolViolationException e) {
+				this.uClient.logger.severe("Internal/DualStackClient: ProtocolViolationException occurred while reading from TCP stream, disconnecting...");
+				e.printStackTrace();
+				this.uClient.shouldDisconnect = true;
+				this.uClient.onClientKicked("A ProtocolViolationException has occurred while reading from TCP stream.");
+				return;
 			}
 			try {
 				Thread.sleep(25);
@@ -242,10 +252,18 @@ class DualstackClient implements IClientImplementation{
 				int id = this.uClient.dataInputStream.readInt();
 				this.uClient.handlePacketReceive(id, this.uClient.dataInputStream);
 			} catch (IOException e) {
-				
+				this.uClient.logger.severe("Internal/DualStackClient: IOException occurred while reading from UDP stream, disconnecting...");
+				e.printStackTrace();
+				this.uClient.shouldDisconnect = true;
+				this.uClient.onClientKicked("IOException has occurred while reading from UDP stream.");
+				return;
 			} catch (ProtocolViolationException e) {
-				
-			}	
+				this.uClient.logger.severe("Internal/DualStackClient: ProtocolViolationException occurred while reading from UDP stream, disconnecting...");
+				e.printStackTrace();
+				this.uClient.shouldDisconnect = true;
+				this.uClient.onClientKicked("A ProtocolViolationException has occurred while reading from UDP stream.");
+				return;
+			}
 		}
 	}
 }

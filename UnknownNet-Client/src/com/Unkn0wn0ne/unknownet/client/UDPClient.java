@@ -27,6 +27,7 @@ import com.Unkn0wn0ne.unknownet.client.errors.ProtocolViolationException;
 import com.Unkn0wn0ne.unknownet.client.net.InternalPacket1Kick;
 import com.Unkn0wn0ne.unknownet.client.net.InternalPacket2Handshake;
 import com.Unkn0wn0ne.unknownet.client.net.InternalPacket5Hello;
+import com.Unkn0wn0ne.unknownet.client.net.Packet;
 
 class UDPClient implements IClientImplementation {
 
@@ -120,51 +121,69 @@ class UDPClient implements IClientImplementation {
 			
 			this.uClient.udpWriter.reset();
 			while (!this.uClient.highsToBeSent.isEmpty()) {
+				Packet highPacket = this.uClient.highsToBeSent.poll();
 				try {
 					this.uClient.dataOutputStream.writeInt(this.uClient.uid);
-					this.uClient.highsToBeSent.poll()._write(this.uClient.dataOutputStream);
+					highPacket._write(this.uClient.dataOutputStream);
 					this.uClient.dataOutputStream.flush();
 					this.uClient.dPacket.setData(this.uClient.udpWriter.toByteArray());
 					this.uClient.dPacket.setLength(this.uClient.dPacket.getData().length);
 					this.uClient.dSocket.send(this.uClient.dPacket);
 					this.uClient.udpWriter.reset();
 				} catch (IOException e) {
+					this.uClient.logger.severe("Internal/TCPClient: An IOException has occurred while sending a packet. Disconnecting.");
 					e.printStackTrace();
+					this.uClient.shouldDisconnect = true;
+					this.uClient.onClientKicked("An IOException occurred while sending a a packet");
+					return;
 				}
+				this.uClient.clientRepository.freePacket(highPacket);
 			}
 			
 			while (!this.uClient.internalsToBeSent.isEmpty()) {
+				Packet internal = this.uClient.internalsToBeSent.poll();
 				try {
 					this.uClient.dataOutputStream.writeInt(this.uClient.uid);
-					this.uClient.internal = this.uClient.internalsToBeSent.poll();
-					this.uClient.internal._write(this.uClient.dataOutputStream);
+					internal._write(this.uClient.dataOutputStream);
 					this.uClient.dataOutputStream.flush();
 					this.uClient.dPacket.setData(this.uClient.udpWriter.toByteArray());
 					this.uClient.dPacket.setLength(this.uClient.dPacket.getData().length);
 					this.uClient.dSocket.send(this.uClient.dPacket);
 					this.uClient.udpWriter.reset();
-					if (this.uClient.internal instanceof InternalPacket1Kick) {
+					if (internal instanceof InternalPacket1Kick) {
 						this.uClient.shouldDisconnect = true;
 						this.uClient.dSocket.close();
 						return;
 					}
 				} catch (IOException e) {
+					this.uClient.logger.severe("Internal/TCPClient: An IOException has occurred while sending a packet. Disconnecting.");
 					e.printStackTrace();
+					this.uClient.shouldDisconnect = true;
+					this.uClient.onClientKicked("An IOException occurred while sending a a packet");
+					return;
 				}
+				
+				this.uClient.clientRepository.freePacket(internal);
 			}
 			
 			while (!this.uClient.lowsToBeSent.isEmpty()) {
+				Packet lowPacket = this.uClient.lowsToBeSent.poll();
 				try {
 					this.uClient.dataOutputStream.writeInt(this.uClient.uid);
-					this.uClient.lowsToBeSent.poll()._write(this.uClient.dataOutputStream);
+					lowPacket._write(this.uClient.dataOutputStream);
 					this.uClient.dataOutputStream.flush();
 					this.uClient.dPacket.setData(this.uClient.udpWriter.toByteArray());
 					this.uClient.dPacket.setLength(this.uClient.dPacket.getData().length);
 					this.uClient.dSocket.send(this.uClient.dPacket);
 					this.uClient.udpWriter.reset();
 				} catch (IOException e) {
+					this.uClient.logger.severe("Internal/TCPClient: An IOException has occurred while sending a packet. Disconnecting.");
 					e.printStackTrace();
+					this.uClient.shouldDisconnect = true;
+					this.uClient.onClientKicked("An IOException occurred while sending a a packet");
+					return;
 				}
+				this.uClient.clientRepository.freePacket(lowPacket);
 			}
 		}
 	}
@@ -196,12 +215,18 @@ class UDPClient implements IClientImplementation {
 				int id = this.uClient.dataInputStream.readInt();
 				this.uClient.handlePacketReceive(id, this.uClient.dataInputStream);
 			} catch (IOException e) {
-				
+				this.uClient.logger.severe("Internal/DualStackClient: IOException occurred while reading from UDP stream, disconnecting...");
+				e.printStackTrace();
+				this.uClient.shouldDisconnect = true;
+				this.uClient.onClientKicked("IOException has occurred while reading from UDP stream.");
+				return;
 			} catch (ProtocolViolationException e) {
-				
+				this.uClient.logger.severe("Internal/DualStackClient: ProtocolViolationException occurred while reading from UDP stream, disconnecting...");
+				e.printStackTrace();
+				this.uClient.shouldDisconnect = true;
+				this.uClient.onClientKicked("A ProtocolViolationException has occurred while reading from UDP stream.");
+				return;
 			}
-			
 		}
 	}
-
 }

@@ -50,4 +50,9 @@ public class InternalPacket3KeepAlive extends Packet {
 		return PACKET_PROTOCOL.TCP;
 	}
 
+	@Override
+	public void clearVariables() {
+		
+	}
+
 }

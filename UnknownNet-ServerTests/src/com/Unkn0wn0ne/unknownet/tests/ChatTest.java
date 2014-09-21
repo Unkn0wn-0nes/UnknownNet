@@ -53,6 +53,8 @@ public class ChatTest extends UnknownServer{
 		// Get the number of clients connected.
 		int num = 0;
 		synchronized (this.getConnectedClients()) {
+			int numClients = this.getConnectedClients().size();
+			msgPacket.setRecipentCount(numClients);
 			for (UnknownClient c: this.getConnectedClients()) {
 				num++;
 				c.queuePacket(msgPacket);
@@ -60,6 +62,8 @@ public class ChatTest extends UnknownServer{
 		}
 		
 		// Let the new client know how many other clients are connected.
+		if (num == 0) 
+			num = 1;
 		Packet1ChatMessage msgPacket2  = new Packet1ChatMessage();
 		msgPacket2.setVariables("Welcome to our chat server! There are : " + num + " client(s) connected right now.");
 		client.queuePacket(msgPacket2);
@@ -74,6 +78,8 @@ public class ChatTest extends UnknownServer{
 		Packet1ChatMessage msgPacket = new Packet1ChatMessage();
 		msgPacket.setVariables(client.getClientTag() + " has left the server.");
 		synchronized (this.getConnectedClients()) {
+			int numClients = this.getConnectedClients().size();
+			msgPacket.setRecipentCount(numClients);
 			for (UnknownClient c: this.getConnectedClients()) {
 				c.queuePacket(msgPacket);
 			}
@@ -94,6 +100,8 @@ public class ChatTest extends UnknownServer{
 			try {
 				// Send the msg to all the clients
 				Packet1ChatMessage msgPacket = (Packet1ChatMessage) this.createPacket(1);
+				int numClients = this.getConnectedClients().size();
+				msgPacket.setRecipentCount(numClients);
 				msgPacket.setVariables(str);
 				for (UnknownClient c: this.getConnectedClients()) {
 					c.queuePacket(msgPacket);

@@ -57,4 +57,10 @@ public class Packet1ChatMessage extends Packet{
 		return PACKET_PROTOCOL.TCP;
 	}
 
+	@Override
+	public void clearVariables() {
+		this.smsg = null;
+		this.rmsg = null;
+	}
+
 }

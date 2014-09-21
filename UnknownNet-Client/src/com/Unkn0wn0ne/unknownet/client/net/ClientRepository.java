@@ -17,6 +17,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import com.Unkn0wn0ne.unknownet.client.errors.ProtocolViolationException;
+import com.Unkn0wn0ne.unknownet.client.util.ObjectPool;
+
 
 /**
  * ClientRepository - Manages the protocol for both internal UnknownNet connections and your implementation.
@@ -24,7 +26,7 @@ import com.Unkn0wn0ne.unknownet.client.errors.ProtocolViolationException;
  */
 public class ClientRepository {
 	private Logger logger = Logger.getLogger("UnknownNet");
-	private ConcurrentHashMap<Integer, Packet> registeredPackets = new ConcurrentHashMap<Integer, Packet>();
+	private ConcurrentHashMap<Integer, ObjectPool<Packet>> registeredPacketPools = new ConcurrentHashMap<Integer, ObjectPool<Packet>>();
 	
 	/**
 	 * Called by UnknownClient, registers the internal UnknownNet packets for use with communication to an UnknownNet server
@@ -50,7 +52,9 @@ public class ClientRepository {
 		Packet nPacket;
 		try {
 			nPacket = packet.newInstance();
-			this.registeredPackets.put(id, nPacket);
+			ObjectPool<Packet> packetPool = new ObjectPool<Packet>();
+			packetPool.setType(nPacket);
+			this.registeredPacketPools.put(id, packetPool);
 		} catch (InstantiationException e) {
 			logger.severe("Failed to register packet id '" + id + "' An InstantiationException has occurred.");
 			e.printStackTrace();
@@ -67,10 +71,23 @@ public class ClientRepository {
 	 * @throws ProtocolViolationException If there was an issue retrieving the packet
 	 */
 	public Packet getPacket(int id) throws ProtocolViolationException {
-		if (this.registeredPackets.get(id) == null) {
+		if (this.registeredPacketPools.get(id) == null) {
 			logger.severe("Internal/ClientRepository: Protocol violation, attempted to access a packet with non-existant id '" + id + "' disconnecting. (Did you register the packet using UnknownClient.registerPacket?)");
 			throw new ProtocolViolationException("A protocol violation has occurred. Attempted to access a packet with a non-existant id '" + id + "' (Did you register the packet using UnknownClient.registerPacket?)");
 		}
-		return this.registeredPackets.get(id);
+		try {
+			return this.registeredPacketPools.get(id).getObject();
+		} catch (InstantiationException e) {
+			this.logger.severe("Internal/ClientRepository: Failed to allocate packet id '" + id + "', an InstantiationException has occurrred.");
+			e.printStackTrace();
+		} catch (IllegalAccessException e) {
+			this.logger.severe("Internal/ClientRepository: Failed to allocate packet id '" + id + "', an IllegalAccessException has occurrred.");
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	public void freePacket(Packet packet) {
+		this.registeredPacketPools.get(packet.getId()).freeObject(packet);
 	}
 }

@@ -71,8 +71,6 @@ public abstract class UnknownClient implements Runnable{
 	protected Queue<Packet> highsToBeSent = new LinkedList<Packet>();
 	protected Queue<Packet> lowsToBeSent = new LinkedList<Packet>();
 	
-	protected Packet packet = null;
-	protected Packet internal = null;
 	protected InternalPacket3KeepAlive keepAlivePacket = null;
 	
 	protected long lastReceivedKeepAlive;
@@ -244,9 +242,15 @@ public abstract class UnknownClient implements Runnable{
 					this.dPacket = new DatagramPacket(new byte[dSocket.getReceiveBufferSize()], dSocket.getReceiveBufferSize());
 					this.dPacket2 = new DatagramPacket(new byte[dSocket.getReceiveBufferSize()], dSocket.getReceiveBufferSize());
 				} catch (SocketException e2) {
+					this.logger.severe("Internal/UnknownClient: Failed to create a DatagramSocket, a SocketException occurred. Aborting...");
+					e2.printStackTrace();
+					this.onConnectionFailed("Failed to create a DatagramSocket, a SocketException occurred.");
+					return;
 				} catch (UnknownHostException e) {
-					// TODO Auto-generated catch block
+					this.logger.severe("Internal/UnknownClient: Failed to create a DatagramSocket, an UnknownHostException ocurred. Aborting...");
 					e.printStackTrace();
+					this.onConnectionFailed("Failed to create a DatagramSocket, an UnknownHostException occurred.");
+					return;
 				}
 			
 			this.udpWriter = new ByteArrayOutputStream();
@@ -284,9 +288,10 @@ public abstract class UnknownClient implements Runnable{
 			return;
 		}
 		default: {
-			this.packet = this.clientRepository.getPacket(id);
-			this.packet.read(inputStream);
-			this.onPacketReceived(this.packet);
+			Packet packet = this.clientRepository.getPacket(id);
+			packet.read(inputStream);
+			this.onPacketReceived(packet);
+			this.clientRepository.freePacket(packet);
 			return;
 		}
 		}

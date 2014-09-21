@@ -51,4 +51,9 @@ public class InternalPacket4AdministrativeAction extends Packet{
 		return PACKET_PROTOCOL.TCP;
 	}
 
+	@Override
+	public void clearVariables() {
+		
+	}
+
 }

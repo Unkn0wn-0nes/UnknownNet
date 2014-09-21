@@ -33,12 +33,14 @@ public class TCPClient extends UnknownClient {
 		if (this.hasBeenEjected) {
 			// Don't handle it. Client has been ejected and this thread will be
 			// shutting down.
+			this.server.getRepository().freePacket(packet);
 			return;
 		}
 		switch (packet.getId()) {
 			case -5: {
 				// Hello packets are not sent in TCP, there is no need.
 				this.eject("Protocol Error: Invalid Hello packet.", false);
+				this.server.getRepository().freePacket(packet);
 				return;
 			}
 			case -4: {
@@ -50,6 +52,7 @@ public class TCPClient extends UnknownClient {
 					this.server.getSeverGuard().logSecurityViolation(
 							VIOLATION_TYPE.SECURITY_ISSUE, this);
 				}
+				this.server.getRepository().freePacket(packet);
 				return;
 			}
 			case -3: {
@@ -61,6 +64,7 @@ public class TCPClient extends UnknownClient {
 							false);
 				}
 				this.missedKeepAlives = -1;
+				this.server.getRepository().freePacket(packet);
 				return;
 			}
 			case -2: {
@@ -71,6 +75,7 @@ public class TCPClient extends UnknownClient {
 				this.eject(
 						"Protocol Error: You've already been authenticated.",
 						false);
+				this.server.getRepository().freePacket(packet);
 				return;
 			}
 			case -1: {
@@ -80,11 +85,13 @@ public class TCPClient extends UnknownClient {
 						+ "' has disconnection. [Reason: "
 						+ disconnectPacket.getMessage() + "]");
 				this.server.handleClientLeaving(this);
+				this.server.getRepository().freePacket(packet);
 				break;
 			}
 			default: {
 				// Not an internal packet, let implementation handle it.
 				this.server.onPacketReceived(this, packet);
+				this.server.getRepository().freePacket(packet);
 				break;
 			}
 		}
@@ -128,19 +135,24 @@ public class TCPClient extends UnknownClient {
 			
 			try {
 				if (dataInputStream.available() > 0) {
-					packet = this.server.getRepository().getPacket(dataInputStream.readInt());
+					Packet packet = this.server.getRepository().getPacket(dataInputStream.readInt());
 					packet.read(this.dataInputStream);
 					this.processPacket(packet);
 				}
 			} catch (IOException e) {
-				
+				this.eject("Networking Error: " + e.getMessage(), false);
 			} catch (ProtocolViolationException e) {
 				this.eject("Protocol Error: " + e.getMessage(), false);
 			}
 			
 			while (!this.highPriorityToBeSent.isEmpty()) {
 				try {
-					this.highPriorityToBeSent.poll()._write(this.dataOutputStream);
+					Packet highPacket = this.highPriorityToBeSent.poll();
+					highPacket._write(this.dataOutputStream);
+					highPacket.setRecipentCount(highPacket.getRecipentCount() - 1);
+					if (highPacket.getRecipentCount() == 0) {
+						this.server.getRepository().freePacket(highPacket);
+					}
 				} catch (IOException e) {
 					this.eject("IOException occurred while sending data to stream.", false);
 				}
@@ -151,7 +163,6 @@ public class TCPClient extends UnknownClient {
 				
 				try { 
 					internalPacket._write(this.dataOutputStream);
-					
 				} catch (IOException e) {
 					this.eject("IOException occurred while sending data to stream.", false);
 				} 
@@ -159,11 +170,21 @@ public class TCPClient extends UnknownClient {
 				if (internalPacket instanceof InternalPacket1Kick) {
 						return;
 				}
+				
+				internalPacket.setRecipentCount(internalPacket.getRecipentCount() - 1);
+				if (internalPacket.getRecipentCount() == 0) {
+					this.server.getRepository().freePacket(internalPacket);
+				}
 			}
 			
 			while (!this.lowPriorityToBeSent.isEmpty()) {
 				try {
-					this.lowPriorityToBeSent.poll()._write(this.dataOutputStream);
+					Packet lowPacket = this.lowPriorityToBeSent.poll();
+					lowPacket._write(this.dataOutputStream);
+					lowPacket.setRecipentCount(lowPacket.getRecipentCount() - 1);
+					if (lowPacket.getRecipentCount() == 0) {
+						this.server.getRepository().freePacket(lowPacket);
+					}
 				} catch (IOException e) {
 					this.eject("IOException occurred while sending data to stream.", false);
 				}

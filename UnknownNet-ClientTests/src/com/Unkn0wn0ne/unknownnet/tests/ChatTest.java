@@ -79,11 +79,16 @@ public class ChatTest extends UnknownClient{
 		    if (msg == null) {
 		    	return;
 		    }
+		    
+		    if (msg.equalsIgnoreCase("!exit")) {
+		    	return;
+		    }
+		    
 		    try {
 		    	// Send message to server
 				Packet chatPacket = this.createPacket(1);
 				chatPacket.setVariables(msg);
-			    this.queuePacket(chatPacket);
+				this.queuePacket(chatPacket);
 			} catch (ProtocolViolationException e) {
 				e.printStackTrace();
 			}

@@ -41,6 +41,7 @@ public class UDPClient extends UnknownClient {
 		if (this.hasBeenEjected) {
 			// Don't handle it. Client has been ejected and this thread will be
 			// shutting down.
+			this.server.getRepository().freePacket(uPacket);
 			return;
 		}
 
@@ -50,6 +51,7 @@ public class UDPClient extends UnknownClient {
 			if (!(uPacket instanceof InternalPacket2Handshake)) {
 				// Client is not authenticated and the packet is not a handshake packet
 				this.eject("Protocol Violation: First packet was not handshake packet.", false);
+				this.server.getRepository().freePacket(uPacket);
 				return;
 			}
 		}
@@ -60,6 +62,7 @@ public class UDPClient extends UnknownClient {
 				if (this.hellosReceived > 3) {
 					this.eject("Protocol Error: Invalid Hello packet received.", false);
 				}
+				this.server.getRepository().freePacket(uPacket);
 				return;
 			}
 			case -4: {
@@ -70,6 +73,7 @@ public class UDPClient extends UnknownClient {
 					// security manager, ServerGuard
 					this.server.getSeverGuard().logSecurityViolation(VIOLATION_TYPE.SECURITY_ISSUE, this);
 				}
+				this.server.getRepository().freePacket(uPacket);
 				return;
 			}
 			case -3: {
@@ -79,22 +83,26 @@ public class UDPClient extends UnknownClient {
 					this.eject("Protocol Error: Invalid keep alive packet received.", false);
 				}
 				this.missedKeepAlives = -1;
+				this.server.getRepository().freePacket(uPacket);
 				return;
 			}
 			case -2: {
 				// Handshake packets should have already been handled
 				this.eject("Protocol Error: Invalid HandshakePacket, you've already been authenticated.", false);
+				this.server.getRepository().freePacket(uPacket);
 				return;
 			}
 			case -1: {
 				InternalPacket1Kick disconnectPacket = (InternalPacket1Kick) uPacket;
 				this.server.logger.info("Internal/UnknownClient: Client '" + this.getAddress().getHostAddress() + "' has disconnection. [Reason: "+ disconnectPacket.getMessage() + "]");
 				this.server.handleClientLeaving(this);
+				this.server.getRepository().freePacket(disconnectPacket);
 				break;
 			}
 			default: {
 				// Not an internal packet, let implementation handle it.
 				this.server.onPacketReceived(this, uPacket);
+				this.server.getRepository().freePacket(uPacket);
 				break;
 			}
 		}
@@ -171,10 +179,15 @@ public class UDPClient extends UnknownClient {
 			this.udpWriter.reset();
 			
 			while (!this.highPriorityToBeSent.isEmpty()) {
+				Packet highPacket = this.highPriorityToBeSent.poll();
 				try {
-					this.sendPacket(this.highPriorityToBeSent.poll());
+					this.sendPacket(highPacket);
 				} catch (IOException e) {
 					this.eject("IOException occurred while sending data to stream.", false);
+				}
+				highPacket.setRecipentCount(highPacket.getRecipentCount() - 1);
+				if (highPacket.getRecipentCount() == 0) {
+					this.server.getRepository().freePacket(highPacket);
 				}
 			}
 			
@@ -189,14 +202,24 @@ public class UDPClient extends UnknownClient {
 				if (internalPacket instanceof InternalPacket1Kick) {
 						return;
 				}
+				
+				internalPacket.setRecipentCount(internalPacket.getRecipentCount() - 1);
+				if (internalPacket.getRecipentCount() == 0) {
+					this.server.getRepository().freePacket(internalPacket);
+				}
 			}
 			
 			
 			while (!this.lowPriorityToBeSent.isEmpty()) {
+				Packet lowPacket = this.lowPriorityToBeSent.poll();
 				try {
-					this.sendPacket(this.lowPriorityToBeSent.poll());
+					this.sendPacket(lowPacket);
 				} catch (IOException e) {
 					this.eject("IOException occurred while sending data to stream.", false);
+				}
+				lowPacket.setRecipentCount(lowPacket.getRecipentCount() - 1);
+				if (lowPacket.getRecipentCount() == 0) {
+					this.server.getRepository().freePacket(lowPacket);
 				}
 			}
 		}

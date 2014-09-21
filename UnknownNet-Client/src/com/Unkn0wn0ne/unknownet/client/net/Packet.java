@@ -17,11 +17,13 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+import com.Unkn0wn0ne.unknownet.client.util.PoolableObject;
+
 /**
  * Packet - An abstract class that allows you to create packets for use on the UnknownNet network
  * @author Unkn0wn0ne
  */
-public abstract class Packet {
+public abstract class Packet implements PoolableObject {
 	
 	/**
 	 * Gets the id of the packet. This should remain the same for all of packets of the same type.
@@ -74,7 +76,7 @@ public abstract class Packet {
 	
 	/**
 	 * Used by UnknownNet to determine how quickly the packet needs to be sent
-	 * @author John
+	 * @author Unkn0wn0ne
 	 */
 	public enum PACKET_PRIORITY {
 		

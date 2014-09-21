@@ -56,4 +56,9 @@ public class InternalPacket1Kick extends Packet{
 		return PACKET_PROTOCOL.TCP;
 	}
 
+	@Override
+	public void clearVariables() {
+		this.msg = null;
+	}
+
 }

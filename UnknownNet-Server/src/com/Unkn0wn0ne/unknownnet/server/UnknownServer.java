@@ -347,7 +347,7 @@ public abstract class UnknownServer implements Runnable {
 							byte[] buffer;
 							
 							try {
-								UnknownServer.this.uServerSocket = new DatagramSocket(UnknownServer.this.configManager.getServerPort());
+								UnknownServer.this.uServerSocket = new DatagramSocket(UnknownServer.this.configManager.getAuthServerPort());
 								buffer = new byte[UnknownServer.this.uServerSocket.getReceiveBufferSize()];
 							} catch (SocketException e) {
 								UnknownServer.this.logger.severe("Internal/UnknownServer: Fatal: Failed to create UDP server. A socket exception has occurred.");
@@ -455,8 +455,11 @@ public abstract class UnknownServer implements Runnable {
 					
 					synchronized (this.connectedClients) {
 						for (UnknownClient client : this.connectedClients) {
-							// Check by id and IP in order to avoid malicious attacks, not perfect but the best we've got
+							// Check by id, IP, and port in order to avoid malicious attacks, not perfect but the best we've got
 							if (client.getId() == clientId) {
+								if (client.udpActive && client.getUDP() != packet.getPort()) {
+									continue;
+								}
 								if (client.getAddress().getHostAddress().equalsIgnoreCase(packet.getAddress().getHostAddress())) {
 									client.setUDP(packet.getPort());
 									client.queueUDPPacketProcess(uPacket);

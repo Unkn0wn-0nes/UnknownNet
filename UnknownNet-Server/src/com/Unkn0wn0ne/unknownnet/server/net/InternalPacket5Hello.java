@@ -49,4 +49,9 @@ public class InternalPacket5Hello extends Packet{
 		return PACKET_PROTOCOL.UDP;
 	}
 
+	@Override
+	public void clearVariables() {
+		
+	}
+
 }

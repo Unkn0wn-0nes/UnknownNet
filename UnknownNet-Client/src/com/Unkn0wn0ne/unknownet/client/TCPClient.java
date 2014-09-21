@@ -18,6 +18,7 @@ import java.io.IOException;
 import com.Unkn0wn0ne.unknownet.client.errors.ProtocolViolationException;
 import com.Unkn0wn0ne.unknownet.client.net.InternalPacket1Kick;
 import com.Unkn0wn0ne.unknownet.client.net.InternalPacket2Handshake;
+import com.Unkn0wn0ne.unknownet.client.net.Packet;
 
 class TCPClient implements IClientImplementation {
 
@@ -77,33 +78,51 @@ class TCPClient implements IClientImplementation {
 		
 		while (this.uClient.socket.isConnected()) {
 			while (!this.uClient.highsToBeSent.isEmpty()) {
+				Packet highPacket = this.uClient.highsToBeSent.poll();
 				try {
-					this.uClient.highsToBeSent.poll()._write(this.uClient.dataOutputStream);
+					highPacket._write(this.uClient.dataOutputStream);
 				} catch (IOException e) {
-					
+					this.uClient.logger.severe("Internal/TCPClient: An IOException has occurred while sending a packet. Disconnecting.");
+					e.printStackTrace();
+					this.uClient.shouldDisconnect = true;
+					this.uClient.onClientKicked("An IOException occurred while sending a a packet");
+					return;
 				}
+				this.uClient.clientRepository.freePacket(highPacket);
 			}
 			
 			while (!this.uClient.internalsToBeSent.isEmpty()) {
 				try {
-					this.uClient.internal = this.uClient.internalsToBeSent.poll();
-					this.uClient.internal._write(this.uClient.dataOutputStream);
+					Packet internal = this.uClient.internalsToBeSent.poll();
+					internal._write(this.uClient.dataOutputStream);
 					
-					if (this.uClient.internal instanceof InternalPacket1Kick) {
+					if (internal instanceof InternalPacket1Kick) {
 						this.uClient.socket.close();
 						return;
 					}
+					
+					this.uClient.clientRepository.freePacket(internal);
 				} catch (IOException e) {
-					// TODO
+					this.uClient.logger.severe("Internal/TCPClient: An IOException has occurred while sending a packet. Disconnecting.");
+					e.printStackTrace();
+					this.uClient.shouldDisconnect = true;
+					this.uClient.onClientKicked("An IOException occurred while sending a a packet");
+					return;
 				}
 			}
 			
 			while (!this.uClient.lowsToBeSent.isEmpty()) {
+				Packet lowPacket = this.uClient.lowsToBeSent.poll();
 				try {
-					this.uClient.lowsToBeSent.poll()._write(this.uClient.dataOutputStream);
+					lowPacket._write(this.uClient.dataOutputStream);
 				} catch (IOException e) {
-					// TODO
+					this.uClient.logger.severe("Internal/TCPClient: An IOException has occurred while sending a packet. Disconnecting.");
+					e.printStackTrace();
+					this.uClient.shouldDisconnect = true;
+					this.uClient.onClientKicked("An IOException occurred while sending a a packet");
+					return;
 				}
+				this.uClient.clientRepository.freePacket(lowPacket);
 			}
 			
 			try {

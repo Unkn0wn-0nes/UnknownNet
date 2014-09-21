@@ -43,6 +43,7 @@ public class DualStackClient extends UnknownClient {
 			if (this.hellosReceived > 3) {
 				this.eject("Protocol Error: Invalid Hello packet received.", false);
 			}
+			this.server.getRepository().freePacket(packet);
 			return;
 		}
 		case -4: {
@@ -53,6 +54,7 @@ public class DualStackClient extends UnknownClient {
 				// security manager, ServerGuard
 				this.server.getSeverGuard().logSecurityViolation(VIOLATION_TYPE.SECURITY_ISSUE, this);
 			}
+			this.server.getRepository().freePacket(packet);
 			return;
 		}
 		case -3: {
@@ -62,22 +64,26 @@ public class DualStackClient extends UnknownClient {
 				this.eject("Protocol Error: Invalid keep alive packet received.", false);
 			}
 			this.missedKeepAlives = -1;
+			this.server.getRepository().freePacket(packet);
 			return;
 		}
 		case -2: {
 			// Handshake packets should have already been handled
 			this.eject("Protocol Error: Invalid HandshakePacket, you've already been authenticated.", false);
+			this.server.getRepository().freePacket(packet);
 			return;
 		}
 		case -1: {
 			InternalPacket1Kick disconnectPacket = (InternalPacket1Kick) packet;
 			this.server.logger.info("Internal/UnknownClient: Client '" + this.getAddress().getHostAddress() + "' has disconnection. [Reason: "+ disconnectPacket.getMessage() + "]");
 			this.server.handleClientLeaving(this);
+			this.server.getRepository().freePacket(packet);
 			break;
 		}
 		default: {
 			// Not an internal packet, let implementation handle it.
 			this.server.onPacketReceived(this, packet);
+			this.server.getRepository().freePacket(packet);
 			break;
 		}
 	}
@@ -124,46 +130,49 @@ public class DualStackClient extends UnknownClient {
 			
 			while (!this.datagramsToBeProcessed.isEmpty()) {
 				this.udpActive = true;
-				packet = this.datagramsToBeProcessed.poll();
+				Packet packet = this.datagramsToBeProcessed.poll();
 				this.processPacket(packet);
 			}
 			
 			try {
 				if (dataInputStream.available() > 0) {
-					packet = this.server.getRepository().getPacket(dataInputStream.readInt());
+					Packet packet = this.server.getRepository().getPacket(dataInputStream.readInt());
 					packet.read(this.dataInputStream);
 					this.processPacket(packet);
 				}
 			} catch (IOException e) {
-				
+				this.eject("Networking Error: " + e.getMessage(), false);
 			} catch (ProtocolViolationException e) {
 				this.eject("Protocol Error: " + e.getMessage(), false);
 			}
 			
 			while (!this.highPriorityToBeSent.isEmpty()) {
-				packet = this.highPriorityToBeSent.poll();
-				if (packet.getProtocol() == PACKET_PROTOCOL.TCP) {
+				Packet highPacket = this.highPriorityToBeSent.poll();
+				if (highPacket.getProtocol() == PACKET_PROTOCOL.TCP) {
 					try {
-						packet._write(this.dataOutputStream);
+						highPacket._write(this.dataOutputStream);
 					} catch (IOException e) {
 						this.eject("IOException occurred while sending data to stream.", false);
 					}
 				} else {
 					try {
-						sendPacket(this.packet);
+						sendPacket(highPacket);
 					} catch (IOException e) {
 						this.eject("IOException occurred while sending data to stream.", false);
 					}
+				}
+				highPacket.setRecipentCount(highPacket.getRecipentCount() - 1);
+				if (highPacket.getRecipentCount() == 0) {
+	 				this.server.getRepository().freePacket(highPacket);
 				}
 			}
 			
 			while (!this.internalsToBeSent.isEmpty()) {
 				Packet internalPacket = this.internalsToBeSent.poll();
 				
-				if (packet.getProtocol() == PACKET_PROTOCOL.TCP) {
+				if (internalPacket.getProtocol() == PACKET_PROTOCOL.TCP) {
 					try { 
 						internalPacket._write(this.dataOutputStream);
-						
 					} catch (IOException e) {
 						this.eject("IOException occurred while sending data to stream.", false);
 					} 
@@ -178,23 +187,33 @@ public class DualStackClient extends UnknownClient {
 				if (internalPacket instanceof InternalPacket1Kick) {
 						return;
 				}
+				
+				internalPacket.setRecipentCount(internalPacket.getRecipentCount() - 1);
+				if (internalPacket.getRecipentCount() == 0) {
+					this.server.getRepository().freePacket(internalPacket);
+				}
 			}
 			
 			while (!this.lowPriorityToBeSent.isEmpty()) {
-				packet = this.lowPriorityToBeSent.poll();
+				Packet lowPacket = this.lowPriorityToBeSent.poll();
 				
-				if (packet.getProtocol() == PACKET_PROTOCOL.TCP) {
+				if (lowPacket.getProtocol() == PACKET_PROTOCOL.TCP) {
 					try {
-						packet._write(this.dataOutputStream);
+						lowPacket._write(this.dataOutputStream);
 					} catch (IOException e) {
 						this.eject("IOException occurred while sending data to stream.", false);
 					}
 				} else {
 					try {
-						sendPacket(this.packet);
+						sendPacket(lowPacket);
 					} catch (IOException e) {
 						this.eject("IOException occurred while sending data to stream.", false);
 					}
+				}
+				
+				lowPacket.setRecipentCount(lowPacket.getRecipentCount() - 1);
+				if (lowPacket.getRecipentCount() == 0) {
+					this.server.getRepository().freePacket(lowPacket);
 				}
 			}
 		} 

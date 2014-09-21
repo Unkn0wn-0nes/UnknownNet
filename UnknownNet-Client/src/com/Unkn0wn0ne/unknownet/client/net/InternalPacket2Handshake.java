@@ -69,4 +69,11 @@ public class InternalPacket2Handshake extends Packet{
 	public PACKET_PROTOCOL getProtocol() {
 		return PACKET_PROTOCOL.TCP;
 	}
+
+	@Override
+	public void clearVariables() {
+		this.protocolVersion = null;
+		this.response = false;
+		this.loginParams = null;
+	}
 }
