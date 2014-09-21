@@ -46,12 +46,6 @@ public abstract class Packet implements PoolableObject {
 	public abstract void read(DataInputStream dataStream) throws IOException;
 	
 	/**
-	 * UnknowNet has a focus on attempting to reduce allocations so that the GC isn't causing framerate loss or slowing down the network threads. This method simply acts as a constructor for your packet object. Allow variables should be assigned here.
-	 * @param vars
-	 */
-	public abstract void setVariables(Object... vars);
-	
-	/**
 	 * Gets the PACKET_PRIORITY of the packet. This can range from High or Normal for implementation packets and internal UnknownNet packets carry the INTERNAL priority.
 	 * @return A value from the PACKET_PRIORITY enum
 	 */

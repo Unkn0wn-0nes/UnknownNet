@@ -619,8 +619,9 @@ public abstract class UnknownServer implements Runnable {
 	
 	/**
 	 * Called when a packet has been received
+	 * Note that after this method has finished processing the packet will be cleared and reinserted into the pool. The packet cannot be saved after this method. You can copy the values for further processing if you wish.
 	 * @param client The client the packet was received from
-	 * @param packet The packet that was received
+	 * @param packet The packet that was received 
 	 */
 	public abstract void onPacketReceived(UnknownClient client, Packet packet);
 	

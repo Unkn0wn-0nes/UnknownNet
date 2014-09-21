@@ -45,6 +45,9 @@ public abstract class Packet implements PoolableObject{
 		this.clearVariables();
 	}
 	
+	/**
+	 * Called to reset the packet's variables before it is reinserted into the pool. UnknownNet manages this automatically.
+	 */
 	public abstract void clearVariables();
 	
 	public enum PACKET_PROTOCOL {
@@ -62,12 +65,19 @@ public abstract class Packet implements PoolableObject{
 		NORMAL;
 	}
 	
+	/**
+	 * If you are sending a packet to more than one client, you must specify how many clients you are sending it to.
+	 * @param numClients The number of clients you are sending the packet to
+	 */
 	public void setRecipentCount(int numClients) {
 		synchronized (this) {
 			this.numClients = numClients;
 		}
 	}
 	
+	/**
+	 * @return The number of clients you are sending the packet to
+	 */
 	public int getRecipentCount() {
 		synchronized (this) {
 			return this.numClients;

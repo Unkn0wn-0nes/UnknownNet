@@ -14,8 +14,14 @@
 package com.Unkn0wn0ne.unknownnet.server.util;
 
 public interface PoolableObject {
-
+	/**
+	 * UnknowNet has a focus on attempting to reduce allocations so that the GC isn't causing framerate loss or slowing down the network threads. This method simply acts as a constructor for your packet object. Allow variables should be assigned here.
+	 * @param vars
+	 */
 	public void setVariables(Object... vars);
 	
+	/**
+	 * Called to clear variables after a packet has fulfilled it's purpose. UnknownNet calls this automatically.
+	 */
 	public void resetVariables();
 }

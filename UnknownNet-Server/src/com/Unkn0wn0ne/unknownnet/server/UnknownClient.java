@@ -225,7 +225,9 @@ public abstract class UnknownClient implements Runnable {
 	}
 	
 	/**
-	 * Queues a packet to be sent as soon as possible
+	 * Queues a packet to be sent as soon as possible.
+	 * Note: If you are sending the packet to more than one client you MUST specify the number of clients you are sending it to by setting {@link Packet#setRecipentCount(int) }
+	 * The packet will be cleared and put back into the pool after all clients it had been sent to have sent it.
 	 * @param p The packet to be sent
 	 */
 	public void queuePacket(Packet p) {
@@ -312,9 +314,7 @@ public abstract class UnknownClient implements Runnable {
 	
 	protected abstract void handleConnection();
 
-
 	protected abstract void shutdown();
-
 
 	public int getUDP() {
 		return this.datagram.getPort();
