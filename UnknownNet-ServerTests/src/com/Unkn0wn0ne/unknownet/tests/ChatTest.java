@@ -64,9 +64,14 @@ public class ChatTest extends UnknownServer{
 		// Let the new client know how many other clients are connected.
 		if (num == 0) 
 			num = 1;
-		Packet1ChatMessage msgPacket2  = new Packet1ChatMessage();
-		msgPacket2.setVariables("Welcome to our chat server! There are : " + num + " client(s) connected right now.");
-		client.queuePacket(msgPacket2);
+		try {
+			Packet1ChatMessage	msgPacket2 = (Packet1ChatMessage) this.createPacket(1);
+			msgPacket2.setVariables("Welcome to our chat server! There are : " + num + " client(s) connected right now.");
+			client.queuePacket(msgPacket2);
+		} catch (ProtocolViolationException e) {
+			
+		}
+		
 		
 		// Allow the client into the server
 		return true;
@@ -75,14 +80,18 @@ public class ChatTest extends UnknownServer{
 	@Override
 	public void onClientLeave(UnknownClient client) {
 		// Let the clients know that a client has left
-		Packet1ChatMessage msgPacket = new Packet1ChatMessage();
-		msgPacket.setVariables(client.getClientTag() + " has left the server.");
-		synchronized (this.getConnectedClients()) {
-			int numClients = this.getConnectedClients().size();
-			msgPacket.setRecipentCount(numClients);
-			for (UnknownClient c: this.getConnectedClients()) {
-				c.queuePacket(msgPacket);
+		try {
+			Packet1ChatMessage msgPacket = (Packet1ChatMessage) this.createPacket(1);
+			msgPacket.setVariables(client.getClientTag() + " has left the server.");
+			synchronized (this.getConnectedClients()) {
+				int numClients = this.getConnectedClients().size();
+				msgPacket.setRecipentCount(numClients);
+				for (UnknownClient c: this.getConnectedClients()) {
+					c.queuePacket(msgPacket);
+				}
 			}
+		} catch (ProtocolViolationException e) {
+			e.printStackTrace();
 		}
 	}
 

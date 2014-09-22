@@ -285,6 +285,7 @@ public abstract class UnknownClient implements Runnable{
 			kickPacket.read(inputStream);
 			logger.info("Internal/UnknownClient: Server is kicking us out! Message: " + kickPacket.getReason());
 			this.onClientKicked(kickPacket.getReason());
+			this.clientRepository.freePacket(kickPacket);
 			return;
 		}
 		default: {
