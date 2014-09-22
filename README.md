@@ -1,4 +1,4 @@
-UnknownNet is currently in heavy development and is not suitable for production builds yet! For progress on the first release of UnknownNet, check our initial alpha milestone: https://github.com/Unkn0wn-0nes/UnknownNet/milestones/Alpha-1.0.0
+UnknownNet is currently in development. For progress on the first release of UnknownNet, check our initial alpha milestone: https://github.com/Unkn0wn-0nes/UnknownNet/milestones/Alpha-1.0.0
 ================
 
 UnknownNet
@@ -21,5 +21,5 @@ UnknownNet has support for SSL TCP client/server sockets using the javax.net and
 
 Notice
 ========
-UnknownNet has not even reached an alpha release yet. Project goals may change and code/protocol breakages may occur. We (the project team) are not liable for anything that happens as a result of using this software.
+UnknownNet has not even reached an alpha release yet. Project goals may change and code/protocol breakages may occur. We (the project team) are not liable for anything that happens as a result of using this software. As this is the nature of experimental software.
 
