@@ -19,52 +19,57 @@ import java.io.FileWriter;
 import java.util.Properties;
 import java.util.logging.Logger;
 
+import com.Unkn0wn0ne.unknownnet.server.util.Protocol;
+
 public class ConfigurationManager {
 
 	private Logger logger = Logger.getLogger("UnknownNet");
-	private int serverPort = 4334; 
-	private boolean useSSL = false;
-	private String protocolVersion = "unknownserver-dev";
-	private int maxClients = 1000;
 	
-	// TCP settings 
-	private boolean TCP_NODELAY = true; 
-	private int IP_TOS = 10;
-	private boolean KEEP_ALIVE = true; // Note: Temporary, I just have to patch the client
+	private boolean useFileSystem = false;
+	private ServerConfigurationBuilder config = null;
 	
-	private String protocol = "DUALSTACK";
-	
-	// UDP settings
-	private int authServerPort = 4333;
-	
-	public ConfigurationManager() {
-		File config = new File("unknownserver.properties");
-		if (!config.exists()) {
+	public void load() {
+		if (!useFileSystem && config == null) {
+			this.logger.warning("Internal/ConfigurationManager: useFileSystem is false, but supplied configuration is null. Using defaults.");
+			this.config = new ServerConfigurationBuilder();
+			return;
+		} else if (this.useFileSystem && config != null) {
+			this.logger.warning("Internal/ConfigurationManager: useFileSystem is true, but there is a supplied configuration. Using supplied config");
+			return;
+		} else if (!this.useFileSystem && config != null) {
+			this.logger.info("Internal/ConfigurationManager: Using supplied configuration.");
+			return;
+		} 
+		
+		this.config = new ServerConfigurationBuilder();
+		this.logger.info("Internal/ConfigurationManager: Using file sytem for configuration information.");
+		
+		File fConfig = new File("unknownserver.properties");
+		if (!fConfig.exists()) {
 			logger.severe("Internal/ConfigurationManager: unknownserver.properties does not exist, server will create this and run with the default settings");
 			logger.severe("Internal/ConfigurationManager: These defaults could preset security and/or functionality risks depending on your implementation. UnknownNet-ServerGuard will be activated to monitor suspicious activity.");
-			generateConfig(config);
+			generateConfig(fConfig);
 		} else {
-			loadConfig(config);
+			loadConfig(fConfig);
 		}
 	}
 	
-	private void loadConfig(File config) {
+
+	private void loadConfig(File fConfig) {
 		logger.info("Internal/ConfigurationManager: Loading configuration file...");
 		try {
 			Properties sProps = new Properties();
-			sProps.load(new FileInputStream(config));
+			sProps.load(new FileInputStream(fConfig));
 			
-			this.serverPort = Integer.parseInt(sProps.getProperty("server.port", "4334").trim());
-			this.protocolVersion = sProps.getProperty("server.protocolversion", "unknownserver-dev").trim();
-			this.useSSL = Boolean.parseBoolean(sProps.getProperty("server.useSSL", "false").trim());
-			this.maxClients = Integer.parseInt(sProps.getProperty("server.maxClients", "1000").trim());
-			this.protocol = sProps.getProperty("server.protocol", "TCP").trim();
-			
-			this.TCP_NODELAY = Boolean.parseBoolean(sProps.getProperty("tcp.nodelay", "true").trim());
-			this.IP_TOS = Integer.parseInt(sProps.getProperty("tcp.iptos", "10").trim());
-			this.KEEP_ALIVE = Boolean.parseBoolean(sProps.getProperty("tcp.keepalive", "true").trim());
-			
-			this.authServerPort = Integer.parseInt(sProps.getProperty("udp.authport", "4333").trim());
+			this.config.setServerPort(Integer.parseInt(sProps.getProperty("server.port", "4334").trim()))
+			 .setProtocolVersion(sProps.getProperty("server.protocolversion", "unknownserver-dev").trim())
+			 .setUseSSL(Boolean.parseBoolean(sProps.getProperty("server.useSSL", "false").trim()))
+			 .setMaxClients(Integer.parseInt(sProps.getProperty("server.maxClients", "1000").trim()))
+			 .setProtocol(Protocol.valueOf(sProps.getProperty("server.protocol", "TCP").trim()))
+			 .setTCPNoDelay(Boolean.parseBoolean(sProps.getProperty("tcp.nodelay", "true").trim()))
+			 .setIPTOS(Integer.parseInt(sProps.getProperty("tcp.iptos", "10").trim()))
+			 .setTCPKeepAlive(Boolean.parseBoolean(sProps.getProperty("tcp.keepalive", "true").trim()))
+			 .setAuthServerPort(Integer.parseInt(sProps.getProperty("udp.authport", "4333").trim()));
 			logger.info("Internal/ConfigurationManager: Successfully loaded configuration file");
 		} catch (Exception e) {
 			logger.severe("Internal/ConfigurationManager: Failed to load configuration file, an Exception has occurred. Using defaults");
@@ -72,11 +77,11 @@ public class ConfigurationManager {
 		}
 	}
 
-	private void generateConfig(File config) {
+	private void generateConfig(File fConfig) {
 		try {
-			config.createNewFile();
+			fConfig.createNewFile();
 			
-			FileWriter fWriter = new FileWriter(config);
+			FileWriter fWriter = new FileWriter(fConfig);
 			fWriter.write("# UnknownNet Server Configuration Files.\n");
 			fWriter.write("# These where automatically generated. Feel free to modify them to suit your needs. \n");
 			
@@ -96,10 +101,10 @@ public class ConfigurationManager {
 			fWriter.write("# TCP Connection Specific Settings\n");
 			fWriter.write("tcp.nodelay=true\n");
 			fWriter.write("tcp.iptos=10\n");
-			fWriter.write("tcp.keepalive=true\n");
+			fWriter.write("tcp.keepalive=false\n");
 			
 			fWriter.write("# UDP specific settings\n");
-			fWriter.write("udp.authport=4333\n");
+			fWriter.write("udp.authport=4334\n");
 			
 			fWriter.write("# END OF CONFIGURATION FILE.\n");
 			fWriter.flush();
@@ -111,39 +116,47 @@ public class ConfigurationManager {
 	}
 
 	public int getServerPort() {
-		return this.serverPort;
+		return this.config.getServerPort();
 	}
 	
 	public boolean useSSL() {
-		return this.useSSL;
+		return this.config.isUsingSSL();
 	}
 	
 	public String getProtocolVersion() {
-		return this.protocolVersion;
+		return this.config.getProtocolVersion();
 	}
 	
 	
 	public int getMaxClients() {
-		return this.maxClients;
+		return this.config.getMaxClients();
 	}
 	
 	public boolean getTCPNoDelay() {
-		return this.TCP_NODELAY;
+		return this.config.getTCPNoDelay();
 	}
 	
 	public int getTrafficClass() {
-		return this.IP_TOS;
+		return this.config.getIPTOS();
 	}
 	
 	public boolean getKeepAlive() {
-		return this.KEEP_ALIVE;
+		return this.config.getTCPKeepAlive();
 	}
 	
 	public String getProtocol() {
-		return this.protocol;
+		return this.config.getProtocol().getProtocol();
 	}
 	
 	public int getAuthServerPort() {
-		return this.authServerPort;
+		return this.config.getAuthServerPort();
+	}
+
+	public void setConfiguration(ServerConfigurationBuilder config) {
+		this.config = config;
+	}
+
+	public void setUseFileSystem(boolean useFileSystem) {
+		this.useFileSystem = useFileSystem;
 	}
 }

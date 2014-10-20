@@ -148,6 +148,7 @@ public class UDPClient extends UnknownClient {
 				continue;
 			} else {
 				this.udpActive = true;
+				this.server.logger.info("Internal/UnknownServer: Client connection from '" + this.getAddress() + ":" + this.getUDP() + "'");
 				if (!this.server.handleNewConnection(this, loginData)) {
 					if (!this.hasBeenEjected()) {
 						this.eject("Server has refused to authenicate you.", false);

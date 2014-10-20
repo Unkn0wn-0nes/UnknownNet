@@ -55,7 +55,7 @@ public abstract class UnknownServer implements Runnable {
 	private boolean isRunning = false;
 	private List<UnknownClient> connectedClients = new CopyOnWriteArrayList<UnknownClient>();
 	
-	private int maxClients = configManager.getMaxClients();
+	private int maxClients = 100;
 	private int numClients = 0;
 	
 	private int numSessionClients = 0;
@@ -71,6 +71,28 @@ public abstract class UnknownServer implements Runnable {
 	 * Creates an UnknownServer with the main thread loop being called every 50 milliseconds
 	 */
 	public UnknownServer() {
+		this(null, true);
+	}
+	
+	/**
+	 * Creates an UnknownServer with the main thread sleeping with the specified sleep time
+	 * @param mainSleep How long the main server thread should sleep before calling {@link UnknownServer#mainLoop()} again
+	 */
+	public UnknownServer(long mainSleep) {
+		this();
+		this.sleep = mainSleep;
+	}
+	
+	public UnknownServer(ServerConfigurationBuilder config) {
+		this(config, false);
+	}
+	
+	public UnknownServer(long mainSleep, ServerConfigurationBuilder config) {
+		this(config, false);
+		this.sleep = mainSleep;
+	}
+	
+	private UnknownServer(ServerConfigurationBuilder config, boolean useFileSystem) {
 		this.logger.setUseParentHandlers(false);
 		ConsoleHandler cHandler = new ConsoleHandler();
 		Formatter formatter = new Formatter() {
@@ -84,6 +106,12 @@ public abstract class UnknownServer implements Runnable {
 		cHandler.setFormatter(formatter);
 		this.logger.addHandler(cHandler);
 		this.logger.addHandler(new FileLogHandler());
+		
+		this.configManager.setConfiguration(config);
+		this.configManager.setUseFileSystem(useFileSystem);
+		this.configManager.load();
+		this.maxClients = this.configManager.getMaxClients();
+		
 		Thread.setDefaultUncaughtExceptionHandler(new UnknownExceptionHandler(this));
 		
 		Runnable runnable = new Runnable() {
@@ -100,14 +128,7 @@ public abstract class UnknownServer implements Runnable {
 		Runtime.getRuntime().addShutdownHook(new Thread(runnable, "Shutdown-Hook-Thread."));
 	}
 	
-	/**
-	 * Creates an UnknownServer with the main thread sleeping with the specified sleep time
-	 * @param mainSleep How long the main server thread should sleep before calling {@link UnknownServer#mainLoop()} again
-	 */
-	public UnknownServer(long mainSleep) {
-		this();
-		this.sleep = mainSleep;
-	}
+	
 	
 	/**
 	 * Starts the server functions
@@ -155,7 +176,7 @@ public abstract class UnknownServer implements Runnable {
 	}
 
 	/**
-	 * Called to keep the server main thread alive by default every 50 milliseconds, but this can be adjusted by using the UnknownServer(long sleepMain) constructor
+	 * Called to keep the server main thread alive by default every 50 milliseconds, but this can be adjusted by using the UnknownServer(long sleepMain) constructor or {@link UnknownServer#setMainThreadSleep(long)}
 	 */
 	public abstract void mainLoop();
 	
@@ -203,7 +224,7 @@ public abstract class UnknownServer implements Runnable {
 						this.silentlyDisconnect(socket, "The server is currently not accepting new connections at the moment.");
 						continue;
 					}
-					logger.info("Internal/UnknownServer: Client connection from '" + socket.getInetAddress().getHostAddress() + "'");
+					logger.info("Internal/UnknownServer: Client connection from '" + socket.getInetAddress().getHostAddress() + ":" + socket.getPort() + "'");
 					handleNewClient(socket, Protocol.TCP);
 				} catch (IOException e) {
 					logger.warning("Internal/UnknownServer: Failed to accept client, an IOException has occurred.");
@@ -397,7 +418,7 @@ public abstract class UnknownServer implements Runnable {
 						this.silentlyDisconnect(socket, "The server is currently not accepting new connections at the moment.");
 						continue;
 					}
-					logger.info("Internal/UnknownServer: Client connection from '" + socket.getInetAddress().getHostAddress() + "'");
+					logger.info("Internal/UnknownServer: Client connection from '" + socket.getInetAddress().getHostAddress() + ":" + socket.getPort() + "'");
 					handleNewClient(socket, Protocol.DUALSTACK);
 				} catch (IOException e) {
 					logger.warning("Internal/UnknownServer: Failed to accept client, an IOException has occurred.");

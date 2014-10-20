@@ -15,9 +15,19 @@ package com.Unkn0wn0ne.unknownnet.server.util;
 
 public enum Protocol {
 
-	TCP,
+	TCP("TCP"),
 	
-	UDP,
+	UDP("UDP"),
 	
-	DUALSTACK;
+	DUALSTACK("DUALSTACK");
+	
+	private String type;
+	
+	Protocol(String type) {
+		this.type = type;
+	}
+
+	public String getProtocol() {
+		return this.type;
+	}
 }

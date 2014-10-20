@@ -57,7 +57,7 @@ public abstract class UnknownClient implements Runnable{
 	
 	protected Socket socket = null;
 	protected DatagramSocket dSocket = null;
-	protected int authPort = 4333;
+	protected int authPort = 4334;
 	
 	protected DataInputStream dataInputStream = null;
 	protected DataOutputStream dataOutputStream = null;
