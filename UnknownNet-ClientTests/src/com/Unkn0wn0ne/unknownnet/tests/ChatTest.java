@@ -118,4 +118,25 @@ public class ChatTest extends UnknownClient{
 			System.out.println("\007");
 		}
 	}
+
+	@Override
+	public void onDistributedObjectReceived(int zoneId, long id) {
+		System.out.println("Received DistributedObject: id '" + id + "'; type '" + this.getObjectManager(zoneId).getDistributedObject(id).getObjectType() + "'");
+	}
+
+	@Override
+	public void onDistributedObjectDestroyed(int zoneId, long dObjectId) {
+		System.out.println("Destroyed DistributedObject id '" + dObjectId + "'");
+	}
+
+	@Override
+	public void onDistributedObjectUpdated(int zoneId, long id) {
+		System.out.println("Received DistributedObject update for DObject w/ id '" + id + "'");
+	}
+
+	@Override
+	public void onZoneLeave(long zoneId, Long[] dObjectIds) {
+		// TODO Auto-generated method stub
+		
+	}
 }

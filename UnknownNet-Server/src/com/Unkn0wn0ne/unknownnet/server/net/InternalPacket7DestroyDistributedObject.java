@@ -17,17 +17,26 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+public class InternalPacket7DestroyDistributedObject extends Packet{
 
-public class InternalPacket3KeepAlive extends Packet {
+	private long id;
+	private int zoneId = -1;
+	
+	@Override
+	public void setVariables(Object... vars) {
+		this.id = (long) vars[0];
+		this.zoneId = (int) vars[1];
+	}
 
 	@Override
 	public int getId() {
-		return -3;
+		return -7;
 	}
 
 	@Override
 	public void write(DataOutputStream dataStream) throws IOException {
-		
+		dataStream.writeLong(this.id);
+		dataStream.writeInt(this.zoneId);
 	}
 
 	@Override
@@ -36,15 +45,10 @@ public class InternalPacket3KeepAlive extends Packet {
 	}
 
 	@Override
-	public void setVariables(Object... vars) {
-		
+	public PACKET_PRIORITY getPriority() {
+		return PACKET_PRIORITY.INTERNAL;
 	}
 
-	@Override
-	public PACKET_PRIORITY getPriority() {
-		return PACKET_PRIORITY.HIGH;
-	}
-	
 	@Override
 	public PACKET_PROTOCOL getProtocol() {
 		return PACKET_PROTOCOL.TCP;
@@ -52,7 +56,7 @@ public class InternalPacket3KeepAlive extends Packet {
 
 	@Override
 	public void clearVariables() {
-		
+		this.id = 0;
+		this.zoneId = -1;
 	}
-
 }

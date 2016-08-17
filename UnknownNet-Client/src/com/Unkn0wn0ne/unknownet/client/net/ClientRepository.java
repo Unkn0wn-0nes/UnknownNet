@@ -16,9 +16,9 @@ package com.Unkn0wn0ne.unknownet.client.net;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
+import com.Unkn0wn0ne.unknownet.client.distributed.DistributedObject;
 import com.Unkn0wn0ne.unknownet.client.errors.ProtocolViolationException;
 import com.Unkn0wn0ne.unknownet.client.util.ObjectPool;
-
 
 /**
  * ClientRepository - Manages the protocol for both internal UnknownNet connections and your implementation.
@@ -27,12 +27,13 @@ import com.Unkn0wn0ne.unknownet.client.util.ObjectPool;
 public class ClientRepository {
 	private Logger logger = Logger.getLogger("UnknownNet");
 	private ConcurrentHashMap<Integer, ObjectPool<Packet>> registeredPacketPools = new ConcurrentHashMap<Integer, ObjectPool<Packet>>();
+	private ConcurrentHashMap<String, Class<? extends DistributedObject>> registeredDistributedObjects = new ConcurrentHashMap<String, Class<? extends DistributedObject>>();
 	
 	/**
 	 * Called by UnknownClient, registers the internal UnknownNet packets for use with communication to an UnknownNet server
 	 */
 	public void init() {
-		logger.info("Internal/ClientRepository: Init");
+		this.logger.info("Internal/ClientRepository: Init");
 		
 		// Register our internal packets
 		registerPacket(-1, InternalPacket1Kick.class);
@@ -40,6 +41,10 @@ public class ClientRepository {
 		registerPacket(-3, InternalPacket3KeepAlive.class);
 		// TODO: registerPacket(-4, InternalPacket4AdministrativeAction.class);
 		registerPacket(-5, InternalPacket5Hello.class);
+		registerPacket(-6, InternalPacket6DistributedObjectCreation.class);
+		registerPacket(-7, InternalPacket7DestroyDistributedObject.class);
+		registerPacket(-8, InternalPacket8DistributedObjectEdit.class);
+		registerPacket(-9, InternalPacket9LeaveZone.class);
 	}
 	
 	/**
@@ -48,7 +53,7 @@ public class ClientRepository {
 	 * @param packet The class of the packet you'd like to register
 	 */
 	public void registerPacket(int id, Class<? extends Packet> packet){
-		logger.info("Internal/ClientRepository: Registering packet with id '" + id + "' to class '" + packet.getName() + "'");
+		this.logger.info("Internal/ClientRepository: Registering packet with id '" + id + "' to class '" + packet.getName() + "'");
 		Packet nPacket;
 		try {
 			nPacket = packet.newInstance();
@@ -56,10 +61,10 @@ public class ClientRepository {
 			packetPool.setType(nPacket);
 			this.registeredPacketPools.put(id, packetPool);
 		} catch (InstantiationException e) {
-			logger.severe("Failed to register packet id '" + id + "' An InstantiationException has occurred.");
+			this.logger.severe("Failed to register packet id '" + id + "' An InstantiationException has occurred.");
 			e.printStackTrace();
 		} catch (IllegalAccessException e) {
-			logger.severe("Failed to register packet id '" + id + "' An IllegalAccessException has occurred.");
+			this.logger.severe("Failed to register packet id '" + id + "' An IllegalAccessException has occurred.");
 			e.printStackTrace();
 		}
 	}
@@ -70,9 +75,9 @@ public class ClientRepository {
 	 * @return A packet created from the id you've specified
 	 * @throws ProtocolViolationException If there was an issue retrieving the packet
 	 */
-	public Packet getPacket(int id) throws ProtocolViolationException {
+	public Packet getPacket(int id) {
 		if (this.registeredPacketPools.get(id) == null) {
-			logger.severe("Internal/ClientRepository: Protocol violation, attempted to access a packet with non-existant id '" + id + "' disconnecting. (Did you register the packet using UnknownClient.registerPacket?)");
+			this.logger.severe("Internal/ClientRepository: Protocol violation, attempted to access a packet with a non-existant id '" + id + "' disconnecting. (Did you register the packet using UnknownClient.registerPacket?)");
 			throw new ProtocolViolationException("A protocol violation has occurred. Attempted to access a packet with a non-existant id '" + id + "' (Did you register the packet using UnknownClient.registerPacket?)");
 		}
 		try {
@@ -89,5 +94,32 @@ public class ClientRepository {
 
 	public void freePacket(Packet packet) {
 		this.registeredPacketPools.get(packet.getId()).freeObject(packet);
+	}
+	
+	public void registerDistributedObject(String type, Class<? extends DistributedObject> dobject) {
+		this.logger.info("Internal/ClientRepository: Registering DistributedObject type '" + type + "' to class '" + dobject.getName());
+		this.registeredDistributedObjects.put(type, dobject);
+	}
+	
+	public ObjectPool<Packet> getPacketPool(int id) {
+		return this.registeredPacketPools.get(id);
+	}
+	
+	public DistributedObject createDistributedObject(String type) {
+		if (this.registeredDistributedObjects.get(type) == null) {
+			this.logger.severe("Internal/ClientRepository: Protocol violation, attempted to access a DistributedObject with a non-existant type '" + type + "' disconnecting. (Did you register the DistributedObject using UnknownClient.registerDistributedObject?)");
+			throw new ProtocolViolationException("A protocol violation has occurred. Attempted to access a DistributedObject with a non-existant type '" + type + "' (Did you register the DistributedObject using UnknownClient.registerDistributedObject?)");
+		}
+		
+		try {
+			return this.registeredDistributedObjects.get(type).newInstance();
+		} catch (InstantiationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IllegalAccessException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
 	}
 }

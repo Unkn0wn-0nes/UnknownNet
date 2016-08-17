@@ -13,7 +13,6 @@
    limitations under the License. **/
 package com.Unkn0wn0ne.unknownet.client;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -24,6 +23,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.logging.Logger;
@@ -31,10 +31,16 @@ import java.util.logging.Logger;
 import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 
+import com.Unkn0wn0ne.unknownet.client.distributed.DistributedObject;
+import com.Unkn0wn0ne.unknownet.client.distributed.ObjectManager;
 import com.Unkn0wn0ne.unknownet.client.errors.ProtocolViolationException;
 import com.Unkn0wn0ne.unknownet.client.net.ClientRepository;
 import com.Unkn0wn0ne.unknownet.client.net.InternalPacket1Kick;
 import com.Unkn0wn0ne.unknownet.client.net.InternalPacket3KeepAlive;
+import com.Unkn0wn0ne.unknownet.client.net.InternalPacket6DistributedObjectCreation;
+import com.Unkn0wn0ne.unknownet.client.net.InternalPacket7DestroyDistributedObject;
+import com.Unkn0wn0ne.unknownet.client.net.InternalPacket8DistributedObjectEdit;
+import com.Unkn0wn0ne.unknownet.client.net.InternalPacket9LeaveZone;
 import com.Unkn0wn0ne.unknownet.client.net.Packet;
 import com.Unkn0wn0ne.unknownet.client.net.Packet.PACKET_PRIORITY;
 import com.Unkn0wn0ne.unknownet.client.util.Protocol;
@@ -55,17 +61,10 @@ public abstract class UnknownClient implements Runnable{
 	protected String protocolVersion = "unknownserver-dev";
 	private Protocol protocol = null;
 	
-	protected Socket socket = null;
-	protected DatagramSocket dSocket = null;
 	protected int authPort = 4334;
 	
-	protected DataInputStream dataInputStream = null;
-	protected DataOutputStream dataOutputStream = null;
-	protected DatagramPacket dPacket = null;
-	protected DatagramPacket dPacket2 = null;
-	protected ByteArrayOutputStream udpWriter = null;
-	protected ByteArrayInputStream udpReader = null;
-	protected int uid = -1;
+	protected ObjectManager dObjManager = new ObjectManager();
+	protected HashMap<Integer, ObjectManager> clientZones = new HashMap<Integer, ObjectManager>();
 	
 	protected Queue<Packet> internalsToBeSent = new LinkedList<Packet>();
 	protected Queue<Packet> highsToBeSent = new LinkedList<Packet>();
@@ -80,6 +79,8 @@ public abstract class UnknownClient implements Runnable{
 	protected boolean shouldDisconnect = false;
 
 	private IClientImplementation clientImpl;
+
+	protected int uid;
 	
 	/**
 	 * Creates an UnknownClient object for use in connecting to an UnknownNet server.
@@ -141,14 +142,16 @@ public abstract class UnknownClient implements Runnable{
 	 */
 	@Override
 	public void run() {
+		Socket authenticationSocket = null;
 		// TCP Client
 		if (this.protocol == Protocol.TCP) {
 			this.logger.info("Internal/UnknownClient: Client running with TCP");
 			if (!this.useSSL) {
 				logger.warning("Internal/UnknownClient: Client not configured to use SSL, this could be a security risk and may not be suitable for production builds depending on your implementation.");
 				logger.info("Internal/UnknownClient: Connecting to " + ipAddress + ":" + port + " via unsecured socket (no SSL enabled)");
+				
 				try {
-					this.socket = new Socket(this.ipAddress, this.port);
+					authenticationSocket = new Socket(this.ipAddress, this.port);
 				} catch (UnknownHostException e) {
 					logger.severe("Internal/UnknownClient: Failed to connect to server; an UnknownHostException hasoccurred.  (Message: " + e.getMessage() + ")");
 					this.onConnectionFailed("Failed to connect to server; an UnknownHostException has occurred. (Message: " + e.getMessage() + ")");
@@ -165,7 +168,7 @@ public abstract class UnknownClient implements Runnable{
 				// TODO: Allow alternate SSL certificates to be loaded instead of Java's default.
 				SocketFactory sslSocketFactory = SSLSocketFactory.getDefault();
 				try {
-					this.socket = sslSocketFactory.createSocket(this.ipAddress, this.port);
+					authenticationSocket = sslSocketFactory.createSocket(this.ipAddress, this.port);
 				} catch (UnknownHostException e) {
 					logger.severe("Internal/UnknownClient: Failed to connect to server; an UnknownHostException has occurred.  (Message: " + e.getMessage() + ")");
 					this.onConnectionFailed("Failed to connect to server; an UnknownHostException has occurred. (Message: " + e.getMessage() + ")");
@@ -179,28 +182,42 @@ public abstract class UnknownClient implements Runnable{
 				}
 			}
 			
-			
+			DataOutputStream dataOutputStream = null;
+			DataInputStream dataInputStream = null;
 			try {
-				this.dataOutputStream = new DataOutputStream(this.socket.getOutputStream());
-				this.dataInputStream = new DataInputStream(this.socket.getInputStream());
+				dataOutputStream = new DataOutputStream(authenticationSocket.getOutputStream());
+				dataInputStream = new DataInputStream(authenticationSocket.getInputStream());
 			} catch (IOException e1) {
 				logger.info("Internal/UnknownClient: Failed to connect to " + ipAddress + ":" + port + ", an IOException has occurred.");
 				this.onConnectionFailed("Failed to connect to " + ipAddress + ":" + port + ", an IOException has occurred.");
 				return;
 			}
 			
-			if (!this.clientImpl.authenticate()) {
+		    TCPClient impl = (TCPClient)this.clientImpl;
+		    impl.setConnection(authenticationSocket, dataOutputStream, dataInputStream);
+		    
+			if (!impl.authenticate()) {
 				return;
 			}
 			logger.info("Internal/UnknownClient: Connection to " + ipAddress + ":" + port + " succeeded.");
 			this.clientImpl.handleConnection();
 		} else {
-			// UDP CLIENT
-			if (this.protocol == Protocol.UDP) {
-				this.logger.info("Internal/UnknownClient: Running with UDP.");
+			// UDP CLIENT and DUALSTACK Client
+			if (this.protocol == Protocol.UDP || this.protocol == Protocol.DUALSTACK) {
+				DatagramSocket dSocket = null;
+				DatagramPacket dPacket = null;
+				DatagramPacket dPacket2 = null;
+				ByteArrayOutputStream udpWriter = new ByteArrayOutputStream();
+				DataOutputStream dataOutputStream = new DataOutputStream(udpWriter);
+				
+				if (this.protocol == Protocol.UDP) {
+					this.logger.info("Internal/UnknownClient: Running with UDP.");
+				} else {
+					this.logger.info("Internal/UnknownClient: Client running with DUALSTACK (TCP + UDP)");
+				}
 				
 				if (this.useSSL) {
-					this.logger.warning("Internal/UnknownClient: SSL over UDP is not supported in UnknownNet, but UnknownNet initally connects with TCP to preform authentication to prevent complications and will use ssl for this process. After authentication UnknownNet will be running without SSL.");
+					this.logger.warning("Internal/UnknownClient: SSL over UDP is not supported in UnknownNet, but UnknownNet initally connects with TCP to preform authentication to prevent complications and will use ssl for this process. After authentication UnknownNet will be running without SSL on the UDP packets");
 				}
 				
 				this.logger.info("Internal/UnknownClient: Connecting to authentication service on " + this.ipAddress + ":" + this.authPort + " via TCP socket.");
@@ -209,12 +226,11 @@ public abstract class UnknownClient implements Runnable{
 				}
 				this.logger.info("Internal/UnknownClient: Connecting to " + this.ipAddress + ":" + this.port + " via datagram socket.");
 				
-				try {
-					
-					this.dSocket = new DatagramSocket();
-					this.dSocket.connect(InetAddress.getByName(this.ipAddress), this.port);
-					this.dPacket = new DatagramPacket(new byte[dSocket.getReceiveBufferSize()], dSocket.getReceiveBufferSize());
-					this.dPacket2 = new DatagramPacket(new byte[dSocket.getReceiveBufferSize()], dSocket.getReceiveBufferSize());
+				try {		
+					dSocket = new DatagramSocket();
+					dSocket.connect(InetAddress.getByName(this.ipAddress), this.port);
+					dPacket = new DatagramPacket(new byte[dSocket.getReceiveBufferSize()], dSocket.getReceiveBufferSize());
+					dPacket2 = new DatagramPacket(new byte[dSocket.getReceiveBufferSize()], dSocket.getReceiveBufferSize());
 				} catch (SocketException e) {
 					this.logger.severe("Internal/UnknownClient: Failed to connect to server; a SocketException has occurred. (Message: " + e.getMessage() + ")");
 					this.onConnectionFailed("Failed to connect to server; a SocketException has occurred. (Message: " + e.getMessage() + ")");
@@ -225,40 +241,16 @@ public abstract class UnknownClient implements Runnable{
 					e.printStackTrace();
 					return;
 				}
-				
-				this.udpWriter = new ByteArrayOutputStream();
-				this.dataOutputStream = new DataOutputStream(this.udpWriter);
+				if (this.protocol == Protocol.UDP) {
+					UDPClient udpImpl = (UDPClient)this.clientImpl;
+					udpImpl.setConnection(dSocket, dPacket, dPacket2, udpWriter, dataOutputStream);
+				} else {
+					DualstackClient dualImpl = (DualstackClient)this.clientImpl;
+					dualImpl.setConnection(dSocket, dPacket, dPacket2, udpWriter, dataOutputStream);
+				}
 				logger.info("Internal/UnknownClient: Connection to " + ipAddress + ":" + port + " succeeded.");
 				this.clientImpl.handleConnection();
-			}  else if (this.protocol == Protocol.DUALSTACK) {
-				// DUALSTACK CLIENT
-				this.logger.info("Internal/UnknownClient: Client running with DUALSTACK (TCP + UDP)");
-				if (!this.clientImpl.authenticate()) {
-					return;
-				}		
-				try {
-					this.dSocket = new DatagramSocket();
-					this.dSocket.connect(InetAddress.getByName(this.ipAddress), this.authPort);
-					this.dPacket = new DatagramPacket(new byte[dSocket.getReceiveBufferSize()], dSocket.getReceiveBufferSize());
-					this.dPacket2 = new DatagramPacket(new byte[dSocket.getReceiveBufferSize()], dSocket.getReceiveBufferSize());
-				} catch (SocketException e2) {
-					this.logger.severe("Internal/UnknownClient: Failed to create a DatagramSocket, a SocketException occurred. Aborting...");
-					e2.printStackTrace();
-					this.onConnectionFailed("Failed to create a DatagramSocket, a SocketException occurred.");
-					return;
-				} catch (UnknownHostException e) {
-					this.logger.severe("Internal/UnknownClient: Failed to create a DatagramSocket, an UnknownHostException ocurred. Aborting...");
-					e.printStackTrace();
-					this.onConnectionFailed("Failed to create a DatagramSocket, an UnknownHostException occurred.");
-					return;
-				}
-			
-			this.udpWriter = new ByteArrayOutputStream();
-			this.dataOutputStream = new DataOutputStream(this.udpWriter);
-			
-			logger.info("Internal/UnknownClient: Connection to " + ipAddress + ":" + port + " succeeded.");
-			this.clientImpl.handleConnection();
-	      }
+			} 
 		}
 	}
 
@@ -272,6 +264,35 @@ public abstract class UnknownClient implements Runnable{
 	 */
 	protected void handlePacketReceive(int id, DataInputStream inputStream) throws ProtocolViolationException, IOException {
 		switch (id) {
+		case -9: {
+			InternalPacket9LeaveZone zonePacket = (InternalPacket9LeaveZone) this.clientRepository.getPacket(-9);
+			zonePacket.read(inputStream);
+		    this.getObjectManager(zonePacket.getZoneId()).leaveZone(zonePacket.getZoneId(), this);
+			this.clientRepository.freePacket(zonePacket);
+			return;
+		}
+		case -8: {
+			InternalPacket8DistributedObjectEdit dObjPacket = (InternalPacket8DistributedObjectEdit) this.clientRepository.getPacket(-8);
+			dObjPacket.read(inputStream);
+			this.editDistributedObject(dObjPacket);
+			this.clientRepository.freePacket(dObjPacket);
+			return;
+		}
+		case -7: {
+			InternalPacket7DestroyDistributedObject dObjPacket = (InternalPacket7DestroyDistributedObject) this.clientRepository.getPacket(-7);
+			dObjPacket.read(inputStream);
+			this.onDistributedObjectDestroyed(dObjPacket.getClientZoneId(), dObjPacket.getDObjectId());
+			this.dObjManager.removeDistributedObject(dObjPacket.getDObjectId());
+			this.clientRepository.freePacket(dObjPacket);
+			return;
+		}
+		case -6: {
+			InternalPacket6DistributedObjectCreation dObjPacket = (InternalPacket6DistributedObjectCreation) this.clientRepository.getPacket(-6);
+			dObjPacket.read(inputStream);
+			parseDistributedObject(dObjPacket);
+			this.clientRepository.freePacket(dObjPacket);
+			return;
+		}
 		case -3: {
 			this.lastReceivedKeepAlive = System.currentTimeMillis();
 			this.queuePacket(this.keepAlivePacket);
@@ -297,6 +318,131 @@ public abstract class UnknownClient implements Runnable{
 		}
 		}
 	}
+
+	private void parseDistributedObject(InternalPacket6DistributedObjectCreation dObjPacket) {
+		String[] text = dObjPacket.getObjectText().split(";");
+		
+		int position = 0;
+		String name = text[position].split("=")[1];
+		position++;
+		long id = Long.parseLong(text[position].split("=")[1].trim());
+		position++;
+		int zId = Integer.parseInt(text[position].split("=")[1].trim());
+		position++;
+		
+		DistributedObject dObject = this.clientRepository.createDistributedObject(name);
+		dObject.setId(id);
+		dObject.setZoneId(zId);
+		
+		this.configureDistributedObject(text, position, dObject);
+		this.getObjectManager(zId).addDistributedObject(dObject);
+		this.onDistributedObjectReceived(dObject.getZoneId(), dObject.getId());
+	}
+	
+	private void editDistributedObject(InternalPacket8DistributedObjectEdit dObjPacket) {
+	   String[] text = dObjPacket.getDObjectText().split(";");
+		
+		int position = 0;
+		String name = text[position].split("=")[1];
+		position++;
+		long id = Long.parseLong(text[position].split("=")[1].trim());
+		position++;
+		int zId = Integer.parseInt(text[position].split("=")[1].trim());
+		position++;
+		
+		DistributedObject dObject = this.getObjectManager(zId).getDistributedObject(id);
+		if (dObject == null) {
+			dObject = this.clientRepository.createDistributedObject(name);
+			dObject.setId(id);
+			dObject.setZoneId(zId);
+			this.configureDistributedObject(text, position, dObject);
+			this.getObjectManager(zId).addDistributedObject(dObject);
+			this.onDistributedObjectReceived(zId, id);
+			return;
+		}
+		this.configureDistributedObject(text, position, dObject);
+		this.onDistributedObjectUpdated(zId, id);
+	}
+
+	private void configureDistributedObject(String[] text, int position, DistributedObject dObject) {
+		int numBytes = Integer.parseInt(text[position].split("=")[1]);
+		for (int index = 0; index < numBytes; index++) {
+		    position++;
+			dObject.setByteValue(text[position].split("=")[0], Byte.parseByte(text[position].split("=")[1]));
+		}
+		
+		position++;
+		int numByteArrays = Integer.parseInt(text[position].split("=")[1]);
+		
+		for (int index = 0; index < numByteArrays; index++) {
+			position++;
+			dObject.setByteArrayValue(text[position].split("=")[0], text[position].split("=")[1].getBytes());
+		}
+		
+		position++;
+		int numStrings = Integer.parseInt(text[position].split("=")[1]);
+		
+		for (int index = 0; index < numStrings; index++) {
+			position++;
+			dObject.setStringValue(text[position].split("=")[0], text[position].split("=")[1]);
+		}
+		
+		position++;
+		int numIntegers = Integer.parseInt(text[position].split("=")[1]);
+		
+		for (int index = 0; index < numIntegers; index++) {
+			position++;
+			dObject.setIntegerValue(text[position].split("=")[0], Integer.parseInt(text[position].split("=")[1]));
+		}
+		
+		position++;
+		int numDoubles = Integer.parseInt(text[position].split("=")[1]);
+		
+		for (int index = 0; index < numDoubles; index++) {
+			position++;
+			dObject.setDoubleValue(text[position].split("=")[0], Double.parseDouble(text[position].split("=")[1]));
+		}
+		
+		position++;
+		int numFloats = Integer.parseInt(text[position].split("=")[1]);
+		
+		for (int index = 0; index < numFloats; index++) {
+			position++;
+			dObject.setFloatValue(text[position].split("=")[0], Float.parseFloat(text[position].split("=")[1]));
+		}
+		
+		position++;
+		int numShorts = Integer.parseInt(text[position].split("=")[1]);
+		
+		for (int index = 0; index < numShorts; index++) {
+			position++;
+			dObject.setShortValue(text[position].split("=")[0], Short.parseShort(text[position].split("=")[1]));
+		}
+		
+		position++;
+		int numLongs = Integer.parseInt(text[position].split("=")[1]);
+		
+		for (int index = 0; index < numLongs; index++) {
+			position++;
+			dObject.setLongValue(text[position].split("=")[0], Long.parseLong(text[position].split("=")[1]));
+		}
+		
+		position++;
+		int numBooleans = Integer.parseInt(text[position].split("=")[1]);
+		
+		for (int index = 0; index < numBooleans; index++) {
+			position++;
+			dObject.setBooleanValue(text[position].split("=")[0], Boolean.parseBoolean(text[position].split("=")[1]));
+		}
+	}
+
+	public abstract void onDistributedObjectReceived(int zoneId, long id);
+	
+	public abstract void onDistributedObjectUpdated(int zoneId, long id);
+	
+	public abstract void onDistributedObjectDestroyed(int zoneId, long dObjectId);
+	
+	public abstract void onZoneLeave(long zoneId, Long[] dObjectIds);
 
 	/**
 	 * Called if the connection to the server was successful
@@ -342,7 +488,7 @@ public abstract class UnknownClient implements Runnable{
 		} catch (ProtocolViolationException e) {
 			this.logger.severe("Internal/UnknownClient: ProtocolViolationException while trying to disconnect from server, this should never happen.");
 			try {
-				this.socket.close();
+				this.clientImpl.close();
 			} catch (IOException e1) {
 				this.logger.severe("Internal/UnknownClient: IOException while disconnecting from server. Message: " + e1.getMessage());
 			}
@@ -372,5 +518,32 @@ public abstract class UnknownClient implements Runnable{
 	 */
 	public Packet createPacket(int id) throws ProtocolViolationException {
 		return this.clientRepository.getPacket(id);
+	}
+	
+	public void registerDistributedObject(String type, Class<? extends DistributedObject> dobject) {
+		this.clientRepository.registerDistributedObject(type, dobject);
+	}
+	
+	public DistributedObject createDistributedObject(String type) {
+		return this.clientRepository.createDistributedObject(type);
+	}
+	
+	public ObjectManager getObjectManager(int zoneId) {
+		if (zoneId == -1) {
+			return this.dObjManager;
+		} else {
+			synchronized (this.clientZones) {
+				ObjectManager cZone = this.clientZones.get(zoneId);
+				if (cZone == null) {
+					cZone = new ObjectManager();
+					this.clientZones.put(zoneId, cZone);
+				}
+				return cZone;
+			}
+		}
+	}
+	
+	public ObjectManager getGeneralObjectManager() {
+		return this.getObjectManager(-1);
 	}
 }

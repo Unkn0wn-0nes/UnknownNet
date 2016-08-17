@@ -11,18 +11,29 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License. **/
-package com.Unkn0wn0ne.unknownnet.server.net;
+package com.Unkn0wn0ne.unknownet.client.net;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+public class InternalPacket6DistributedObjectCreation extends Packet{
 
-public class InternalPacket3KeepAlive extends Packet {
+	private String objectText = "";
+	
+	@Override
+	public void setVariables(Object... vars) {
+		
+	}
+
+	@Override
+	public void clearVariables() {
+		
+	}
 
 	@Override
 	public int getId() {
-		return -3;
+		return -6;
 	}
 
 	@Override
@@ -32,27 +43,20 @@ public class InternalPacket3KeepAlive extends Packet {
 
 	@Override
 	public void read(DataInputStream dataStream) throws IOException {
-		
-	}
-
-	@Override
-	public void setVariables(Object... vars) {
-		
+		this.objectText = dataStream.readUTF();
 	}
 
 	@Override
 	public PACKET_PRIORITY getPriority() {
-		return PACKET_PRIORITY.HIGH;
+		return PACKET_PRIORITY.INTERNAL;
 	}
-	
+
 	@Override
 	public PACKET_PROTOCOL getProtocol() {
 		return PACKET_PROTOCOL.TCP;
 	}
 
-	@Override
-	public void clearVariables() {
-		
+	public String getObjectText() {
+		return this.objectText;
 	}
-
 }

@@ -11,16 +11,23 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License. **/
-package com.Unkn0wn0ne.unknownet.client.errors;
+package com.Unkn0wn0ne.unknownnet.tests;
 
-public class ProtocolViolationException extends RuntimeException {
+import com.Unkn0wn0ne.unknownet.client.distributed.DistributedObject;
 
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = -5988762469530150112L;
+public class DistributedClient extends DistributedObject{
 
-	public ProtocolViolationException(String message) {
-		super(message);
+	public DistributedClient() {
+		
+	}
+	
+	@Override
+	public String getObjectType() {
+		return "DistributedClient";
+	}
+
+	
+	public String getName() {
+		return this.getStringValue("cName");
 	}
 }

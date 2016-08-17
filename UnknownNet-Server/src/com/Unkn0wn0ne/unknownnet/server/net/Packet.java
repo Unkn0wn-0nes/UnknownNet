@@ -19,21 +19,52 @@ import java.io.IOException;
 
 import com.Unkn0wn0ne.unknownnet.server.util.PoolableObject;
 
-
+/**
+ * Packet - The basic form of communication an UnknownNet network.
+ * Packets are used as ways of transferring and receiving basic types of data (strings, floats, bytes, integers, etc) over the network.
+ * @author John [Unkn0wn0ne]
+ */
 public abstract class Packet implements PoolableObject{
 	
 	private int numClients = 1;
 	
+	/**
+	 * This function is used to identify specific types of packets
+	 * @return A number specific to the packet's type. This number should not be in use by any other packet type.
+	 */
 	public abstract int getId();
 	
+	/**
+	 * Called when a packet's data is going to be sent over the network.
+	 * @param dataStream The {@link DataOutputStream} used to send data over the network
+	 * @throws IOException
+	 */
 	public abstract void write(DataOutputStream dataStream) throws IOException;
 	
+	/**
+	 * Called when a packet's data needs to be retrieved from the network.
+	 * @param dataStream The {@link DataInputStream} used to retrieve data from the network
+	 * @throws IOException If an I/O error occurs.
+	 */
 	public abstract void read(DataInputStream dataStream) throws IOException;
 	
+	/**
+	 * @return The {@link PACKET_PRIORITY} used to determine when to send the packet
+	 */
 	public abstract PACKET_PRIORITY getPriority();
 	
+	/**
+	 * This function is only used in the 'Dualstack (TCP + UDP)' configuration
+	 * @return The {@link PACKET_PROTOCOL} used for sending the packet over.
+	 */
 	public abstract PACKET_PROTOCOL getProtocol();
 	
+	/** 
+	 * Internal Method. Do not call.
+	 * Used for sending some internal data used to classify packets and then calls {@link Packet#write(DataOutputStream)}
+	 * @param dataStream The DataOutputStream used for writing the packet
+	 * @throws IOException If a network I/O error occurs.
+	 */
 	public void _write(DataOutputStream dataStream) throws IOException{
 		dataStream.writeInt(this.getId());
 		this.write(dataStream);
@@ -50,12 +81,20 @@ public abstract class Packet implements PoolableObject{
 	 */
 	public abstract void clearVariables();
 	
+	/**
+	 * PACKET_PROTOCOL is used in the 'Dualstack (TCP + UDP)' configuration to determine what protocol to send the packet over
+	 */
 	public enum PACKET_PROTOCOL {
 		TCP,
 		
 		UDP;
 	}
 	
+	/**
+	 * PACKET_PRIORITY handles the importance of a packet as to what order it is sent in.
+	 * In UnknownNet, the packets are sent in this order by priority:
+	 *    - HIGH -> INTERNAL -> NORMAL
+	 */
 	public enum PACKET_PRIORITY {
 		
 		INTERNAL,

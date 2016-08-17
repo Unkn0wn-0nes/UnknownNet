@@ -13,7 +13,10 @@
    limitations under the License. **/
 package com.Unkn0wn0ne.unknownet.client;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.Socket;
 
 import com.Unkn0wn0ne.unknownet.client.errors.ProtocolViolationException;
 import com.Unkn0wn0ne.unknownet.client.net.InternalPacket1Kick;
@@ -23,6 +26,9 @@ import com.Unkn0wn0ne.unknownet.client.net.Packet;
 class TCPClient implements IClientImplementation {
 
 	private UnknownClient uClient;
+	private Socket socket;
+	private DataInputStream dataInputStream;
+	private DataOutputStream dataOutputStream;
 	
 	public TCPClient(UnknownClient client) {
 		this.uClient = client;
@@ -34,19 +40,19 @@ class TCPClient implements IClientImplementation {
 			
 			InternalPacket2Handshake handshakePacket = (InternalPacket2Handshake) this.uClient.clientRepository.getPacket(-2);
 			handshakePacket.setVariables(this.uClient.protocolVersion, (this.uClient.loginParams != null) ? true : false, this.uClient.loginParams);
-			handshakePacket._write(this.uClient.dataOutputStream);
-		    this.uClient.dataInputStream.readInt();
-			handshakePacket.read(this.uClient.dataInputStream);
+			handshakePacket._write(this.dataOutputStream);
+		    dataInputStream.readInt();
+			handshakePacket.read(this.dataInputStream);
 			
 			if (handshakePacket.getResponse() == false) {
 				// A getResponse() of false mandates a reason, so a InternalPacket1Kick will be sent explaining the reason
-				this.uClient.dataInputStream.readInt();
+				this.dataInputStream.readInt();
 				InternalPacket1Kick disconnectPacket = (InternalPacket1Kick)this.uClient.clientRepository.getPacket(-1);
-				disconnectPacket.read(this.uClient.dataInputStream);
+				disconnectPacket.read(this.dataInputStream);
 				String reason = disconnectPacket.getReason();
 				
 				this.uClient.logger.info("Internal/UnknownClient: Server is kicking us out! Message: " + reason);
-				this.uClient.socket.close();
+				this.socket.close();
 				this.uClient.onConnectionFailed(reason);
 				return false;
 			}
@@ -76,11 +82,11 @@ class TCPClient implements IClientImplementation {
 			}
 		}).start();
 		
-		while (this.uClient.socket.isConnected()) {
+		while (this.socket.isConnected()) {
 			while (!this.uClient.highsToBeSent.isEmpty()) {
 				Packet highPacket = this.uClient.highsToBeSent.poll();
 				try {
-					highPacket._write(this.uClient.dataOutputStream);
+					highPacket._write(this.dataOutputStream);
 				} catch (IOException e) {
 					this.uClient.logger.severe("Internal/TCPClient: An IOException has occurred while sending a packet. Disconnecting.");
 					e.printStackTrace();
@@ -94,10 +100,10 @@ class TCPClient implements IClientImplementation {
 			while (!this.uClient.internalsToBeSent.isEmpty()) {
 				try {
 					Packet internal = this.uClient.internalsToBeSent.poll();
-					internal._write(this.uClient.dataOutputStream);
+					internal._write(this.dataOutputStream);
 					
 					if (internal instanceof InternalPacket1Kick) {
-						this.uClient.socket.close();
+						this.socket.close();
 						return;
 					}
 					
@@ -114,7 +120,7 @@ class TCPClient implements IClientImplementation {
 			while (!this.uClient.lowsToBeSent.isEmpty()) {
 				Packet lowPacket = this.uClient.lowsToBeSent.poll();
 				try {
-					lowPacket._write(this.uClient.dataOutputStream);
+					lowPacket._write(this.dataOutputStream);
 				} catch (IOException e) {
 					this.uClient.logger.severe("Internal/TCPClient: An IOException has occurred while sending a packet. Disconnecting.");
 					e.printStackTrace();
@@ -138,11 +144,11 @@ class TCPClient implements IClientImplementation {
 	 * This loop runs in a separate thread and handles reading the packet ids from the stream and than calling handlePacketReceive
 	 */
 	protected void doReadLoop() {
-		while (this.uClient.socket.isConnected()) {
+		while (this.socket.isConnected()) {
 			try {
-				if (this.uClient.dataInputStream.available() > 0) {
-					int id = this.uClient.dataInputStream.readInt();
-					this.uClient.handlePacketReceive(id, this.uClient.dataInputStream);
+				if (this.dataInputStream.available() > 0) {
+					int id = this.dataInputStream.readInt();
+					this.uClient.handlePacketReceive(id, this.dataInputStream);
 				}
 			} catch (IOException e) {
 				// TODO
@@ -160,5 +166,16 @@ class TCPClient implements IClientImplementation {
 				return;
 			}
 		}
+	}
+
+	protected void setConnection(Socket authenticationSocket, DataOutputStream dataOutputStream, DataInputStream dataInputStream) {
+		this.socket = authenticationSocket;
+		this.dataOutputStream = dataOutputStream;
+		this.dataInputStream = dataInputStream;
+	}
+
+	@Override
+	public void close() throws IOException {
+		this.socket.close();
 	}
 }

@@ -17,17 +17,23 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+public class InternalPacket8DistributedObjectEdit extends Packet {
 
-public class InternalPacket3KeepAlive extends Packet {
+	private String objectText = null;
+	
+	@Override
+	public void setVariables(Object... vars) {
+		this.objectText = (String)vars[0];
+	}
 
 	@Override
 	public int getId() {
-		return -3;
+		return -8;
 	}
 
 	@Override
 	public void write(DataOutputStream dataStream) throws IOException {
-		
+		dataStream.writeUTF(this.objectText);
 	}
 
 	@Override
@@ -36,15 +42,10 @@ public class InternalPacket3KeepAlive extends Packet {
 	}
 
 	@Override
-	public void setVariables(Object... vars) {
-		
+	public PACKET_PRIORITY getPriority() {
+		return PACKET_PRIORITY.INTERNAL;
 	}
 
-	@Override
-	public PACKET_PRIORITY getPriority() {
-		return PACKET_PRIORITY.HIGH;
-	}
-	
 	@Override
 	public PACKET_PROTOCOL getProtocol() {
 		return PACKET_PROTOCOL.TCP;
@@ -52,7 +53,6 @@ public class InternalPacket3KeepAlive extends Packet {
 
 	@Override
 	public void clearVariables() {
-		
+		this.objectText = null;
 	}
-
 }

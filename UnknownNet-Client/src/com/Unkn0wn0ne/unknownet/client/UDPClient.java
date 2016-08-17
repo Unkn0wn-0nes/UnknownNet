@@ -14,9 +14,12 @@
 package com.Unkn0wn0ne.unknownet.client;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
@@ -31,7 +34,16 @@ import com.Unkn0wn0ne.unknownet.client.net.Packet;
 
 class UDPClient implements IClientImplementation {
 
-	private UnknownClient uClient;
+	protected UnknownClient uClient;
+	
+	protected DatagramSocket dSocket;
+	protected DatagramPacket dPacket, dPacket2;
+	protected ByteArrayOutputStream udpWriter;
+	
+	protected ByteArrayInputStream udpReader;
+	
+	protected DataOutputStream dataOutputStream;
+	protected DataInputStream dataInputStream = null;
 	
 	public UDPClient(UnknownClient client) {
 		this.uClient = client;
@@ -65,7 +77,7 @@ class UDPClient implements IClientImplementation {
 				String reason = disconnectPacket.getReason();
 				
 				this.uClient.logger.info("Internal/UnknownClient: Server is kicking us out! Message: " + reason);
-				this.uClient.socket.close();
+				authSocket.close();
 				this.uClient.onConnectionFailed(reason);
 				return false;	
 		    }
@@ -119,17 +131,17 @@ class UDPClient implements IClientImplementation {
 
 			}
 			
-			this.uClient.udpWriter.reset();
+			this.udpWriter.reset();
 			while (!this.uClient.highsToBeSent.isEmpty()) {
 				Packet highPacket = this.uClient.highsToBeSent.poll();
 				try {
-					this.uClient.dataOutputStream.writeInt(this.uClient.uid);
-					highPacket._write(this.uClient.dataOutputStream);
-					this.uClient.dataOutputStream.flush();
-					this.uClient.dPacket.setData(this.uClient.udpWriter.toByteArray());
-					this.uClient.dPacket.setLength(this.uClient.dPacket.getData().length);
-					this.uClient.dSocket.send(this.uClient.dPacket);
-					this.uClient.udpWriter.reset();
+					this.dataOutputStream.writeInt(this.uClient.uid);
+					highPacket._write(this.dataOutputStream);
+					this.dataOutputStream.flush();
+					this.dPacket.setData(this.udpWriter.toByteArray());
+					this.dPacket.setLength(this.dPacket.getData().length);
+					this.dSocket.send(this.dPacket);
+					this.udpWriter.reset();
 				} catch (IOException e) {
 					this.uClient.logger.severe("Internal/TCPClient: An IOException has occurred while sending a packet. Disconnecting.");
 					e.printStackTrace();
@@ -143,16 +155,16 @@ class UDPClient implements IClientImplementation {
 			while (!this.uClient.internalsToBeSent.isEmpty()) {
 				Packet internal = this.uClient.internalsToBeSent.poll();
 				try {
-					this.uClient.dataOutputStream.writeInt(this.uClient.uid);
-					internal._write(this.uClient.dataOutputStream);
-					this.uClient.dataOutputStream.flush();
-					this.uClient.dPacket.setData(this.uClient.udpWriter.toByteArray());
-					this.uClient.dPacket.setLength(this.uClient.dPacket.getData().length);
-					this.uClient.dSocket.send(this.uClient.dPacket);
-					this.uClient.udpWriter.reset();
+					this.dataOutputStream.writeInt(this.uClient.uid);
+					internal._write(this.dataOutputStream);
+					this.dataOutputStream.flush();
+					this.dPacket.setData(this.udpWriter.toByteArray());
+					this.dPacket.setLength(this.dPacket.getData().length);
+					this.dSocket.send(this.dPacket);
+					this.udpWriter.reset();
 					if (internal instanceof InternalPacket1Kick) {
 						this.uClient.shouldDisconnect = true;
-						this.uClient.dSocket.close();
+						this.dSocket.close();
 						return;
 					}
 				} catch (IOException e) {
@@ -169,13 +181,13 @@ class UDPClient implements IClientImplementation {
 			while (!this.uClient.lowsToBeSent.isEmpty()) {
 				Packet lowPacket = this.uClient.lowsToBeSent.poll();
 				try {
-					this.uClient.dataOutputStream.writeInt(this.uClient.uid);
-					lowPacket._write(this.uClient.dataOutputStream);
-					this.uClient.dataOutputStream.flush();
-					this.uClient.dPacket.setData(this.uClient.udpWriter.toByteArray());
-					this.uClient.dPacket.setLength(this.uClient.dPacket.getData().length);
-					this.uClient.dSocket.send(this.uClient.dPacket);
-					this.uClient.udpWriter.reset();
+					this.dataOutputStream.writeInt(this.uClient.uid);
+					lowPacket._write(this.dataOutputStream);
+					this.dataOutputStream.flush();
+					this.dPacket.setData(this.udpWriter.toByteArray());
+					this.dPacket.setLength(this.dPacket.getData().length);
+					this.dSocket.send(this.dPacket);
+					this.udpWriter.reset();
 				} catch (IOException e) {
 					this.uClient.logger.severe("Internal/TCPClient: An IOException has occurred while sending a packet. Disconnecting.");
 					e.printStackTrace();
@@ -188,17 +200,17 @@ class UDPClient implements IClientImplementation {
 		}
 	}
 
-	private void closeAndLoad() throws IOException {
-		if (this.uClient.dataInputStream != null) {
-			this.uClient.dataInputStream.close();
+	protected void closeAndLoad() throws IOException {
+		if (this.dataInputStream  != null) {
+			this.dataInputStream.close();
 		}
-		this.uClient.udpReader = null;
-		this.uClient.dataInputStream = null;
+		this.udpReader = null;
+		this.dataInputStream = null;
 	    
-		this.uClient.dSocket.receive(this.uClient.dPacket2);
+		this.dSocket.receive(this.dPacket2);
 	    
-		this.uClient.udpReader = new ByteArrayInputStream(this.uClient.dPacket2.getData());
-		this.uClient.dataInputStream = new DataInputStream(this.uClient.udpReader);
+		this.udpReader = new ByteArrayInputStream(this.dPacket2.getData());
+		this.dataInputStream = new DataInputStream(this.udpReader);
 	}
 
 
@@ -212,8 +224,8 @@ class UDPClient implements IClientImplementation {
 			
 			try {
 				this.closeAndLoad();
-				int id = this.uClient.dataInputStream.readInt();
-				this.uClient.handlePacketReceive(id, this.uClient.dataInputStream);
+				int id = this.dataInputStream.readInt();
+				this.uClient.handlePacketReceive(id, this.dataInputStream);
 			} catch (IOException e) {
 				this.uClient.logger.severe("Internal/DualStackClient: IOException occurred while reading from UDP stream, disconnecting...");
 				e.printStackTrace();
@@ -228,5 +240,20 @@ class UDPClient implements IClientImplementation {
 				return;
 			}
 		}
+	}
+
+	@Override
+	public void close() throws IOException {
+		this.dataInputStream.close();
+		this.dataOutputStream.close();
+		this.dSocket.close();
+	}
+
+	public void setConnection(DatagramSocket dSocket, DatagramPacket dPacket, DatagramPacket dPacket2, ByteArrayOutputStream udpWriter, DataOutputStream dataOutputStream) {
+		this.dSocket = dSocket;
+		this.dPacket = dPacket;
+		this.dPacket2 = dPacket2;
+		this.udpWriter = udpWriter;
+		this.dataOutputStream = dataOutputStream;
 	}
 }

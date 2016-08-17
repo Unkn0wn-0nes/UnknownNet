@@ -24,7 +24,10 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.logging.Level;
 
+import com.Unkn0wn0ne.unknownnet.server.logging.LogType;
+import com.Unkn0wn0ne.unknownnet.server.logging.UnknownLogger;
 import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket1Kick;
 import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket3KeepAlive;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet;
@@ -65,6 +68,7 @@ public abstract class UnknownClient implements Runnable {
 	
 	private Object tag;
 	protected int clientId;
+	protected int port;
 	
 	protected Queue<Packet> datagramsToBeProcessed = new LinkedList<Packet>();
 	private Protocol protocol = null;
@@ -90,6 +94,7 @@ public abstract class UnknownClient implements Runnable {
 		this.connection = socket;
 		this.server = server;
 		this.addr = connection.getInetAddress();
+		this.port = connection.getPort();
 		
 		if (this.protocol == Protocol.UDP || this.protocol == Protocol.DUALSTACK) {
 			byte[] buffer;
@@ -108,7 +113,7 @@ public abstract class UnknownClient implements Runnable {
 		try {
 			this.keepAlivePacket = (InternalPacket3KeepAlive)this.server.getRepository().getPacket(-3);
 		} catch (ProtocolViolationException e2) {
-			this.server.logger.severe("Internal/UnknownClient: ProtocolViolationException occurred while creating keep alive packet, this should never happen.");
+			UnknownLogger.log(Level.WARNING, LogType.NETWORKING, "Internal/UnknownClient: ProtocolViolationException occurred while creating keep alive packet, this should never happen.");
 			this.keepAlivePacket = new InternalPacket3KeepAlive();
 		}
 		
@@ -157,7 +162,7 @@ public abstract class UnknownClient implements Runnable {
 			return;
 		}
 		if (!isSilent) {
-			this.server.logger.info("Internal/UnknownClient: Ejecting client '" + this.addr.getHostAddress() + "' for reason: " + msg);
+			UnknownLogger.log(Level.INFO, LogType.NETWORKING, "Internal/UnknownClient: Ejecting client '" + this.addr.getHostAddress() + ":" + this.port + "' for reason: " + msg);
 		}
 		this.hasBeenEjected = true;
 		try {
@@ -305,6 +310,7 @@ public abstract class UnknownClient implements Runnable {
 	
 	protected void setUDP(int port) {
 		if (this.udpActive) return;
+		this.port = port;
 		this.datagram.setPort(port);
 	}
 	
@@ -318,5 +324,9 @@ public abstract class UnknownClient implements Runnable {
 
 	public int getUDP() {
 		return this.datagram.getPort();
+	}
+
+	public UnknownServer getServer() {
+		return this.server;
 	}
 }

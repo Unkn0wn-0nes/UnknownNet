@@ -13,9 +13,13 @@
    limitations under the License. **/
 package com.Unkn0wn0ne.unknownet.client;
 
+import java.io.IOException;
+
 interface IClientImplementation {
 
 	public boolean authenticate();
 	
 	public void handleConnection();
+
+	public void close() throws IOException;
 }
