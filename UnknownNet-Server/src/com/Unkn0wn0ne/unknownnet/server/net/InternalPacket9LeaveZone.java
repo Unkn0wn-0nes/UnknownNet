@@ -17,17 +17,30 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+/**
+ * InternalPacket9LeaveZone - An UnknownNet internal packet that is implementation-agnostic. 
+ * InternalPacket9LeaveZone is sent to a client when a client has been removed from a {@link ClientZone}
+ * The protocol specification is: 
+ * Integer 'zoneId' Server -> Client
+ * @author John [Unkn0wn0ne]
+ */
+public class InternalPacket9LeaveZone extends Packet {
 
-public class InternalPacket3KeepAlive extends Packet {
+	private int zoneId = 0;
+	
+	@Override
+	public void setVariables(Object... vars) {
+		this.zoneId = (int) vars[0];
+	}
 
 	@Override
 	public int getId() {
-		return -3;
+		return -9;
 	}
 
 	@Override
 	public void write(DataOutputStream dataStream) throws IOException {
-		
+		dataStream.writeInt(this.zoneId);
 	}
 
 	@Override
@@ -36,15 +49,10 @@ public class InternalPacket3KeepAlive extends Packet {
 	}
 
 	@Override
-	public void setVariables(Object... vars) {
-		
+	public PACKET_PRIORITY getPriority() {
+		return PACKET_PRIORITY.INTERNAL;
 	}
 
-	@Override
-	public PACKET_PRIORITY getPriority() {
-		return PACKET_PRIORITY.HIGH;
-	}
-	
 	@Override
 	public PACKET_PROTOCOL getProtocol() {
 		return PACKET_PROTOCOL.TCP;
@@ -52,7 +60,6 @@ public class InternalPacket3KeepAlive extends Packet {
 
 	@Override
 	public void clearVariables() {
-		
+		this.zoneId = 0;
 	}
-
 }

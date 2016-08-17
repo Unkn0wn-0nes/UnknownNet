@@ -17,37 +17,37 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.util.Properties;
-import java.util.logging.Logger;
+import java.util.logging.Level;
 
+import com.Unkn0wn0ne.unknownnet.server.logging.LogType;
+import com.Unkn0wn0ne.unknownnet.server.logging.UnknownLogger;
 import com.Unkn0wn0ne.unknownnet.server.util.Protocol;
 
 public class ConfigurationManager {
-
-	private Logger logger = Logger.getLogger("UnknownNet");
 	
 	private boolean useFileSystem = false;
 	private ServerConfigurationBuilder config = null;
 	
 	public void load() {
 		if (!useFileSystem && config == null) {
-			this.logger.warning("Internal/ConfigurationManager: useFileSystem is false, but supplied configuration is null. Using defaults.");
+			UnknownLogger.log(Level.WARNING, LogType.CORE, "Internal/ConfigurationManager: useFileSystem is false, but supplied configuration is null. Using defaults.");
 			this.config = new ServerConfigurationBuilder();
 			return;
 		} else if (this.useFileSystem && config != null) {
-			this.logger.warning("Internal/ConfigurationManager: useFileSystem is true, but there is a supplied configuration. Using supplied config");
+			UnknownLogger.log(Level.WARNING, LogType.CORE, "Internal/ConfigurationManager: useFileSystem is true, but there is a supplied configuration. Using supplied config");
 			return;
 		} else if (!this.useFileSystem && config != null) {
-			this.logger.info("Internal/ConfigurationManager: Using supplied configuration.");
+			UnknownLogger.log(Level.INFO, LogType.CORE, "Internal/ConfigurationManager: Using supplied configuration.");
 			return;
 		} 
 		
 		this.config = new ServerConfigurationBuilder();
-		this.logger.info("Internal/ConfigurationManager: Using file sytem for configuration information.");
+		UnknownLogger.log(Level.INFO, LogType.CORE, "Internal/ConfigurationManager: Using file sytem for configuration information.");
 		
 		File fConfig = new File("unknownserver.properties");
 		if (!fConfig.exists()) {
-			logger.severe("Internal/ConfigurationManager: unknownserver.properties does not exist, server will create this and run with the default settings");
-			logger.severe("Internal/ConfigurationManager: These defaults could preset security and/or functionality risks depending on your implementation. UnknownNet-ServerGuard will be activated to monitor suspicious activity.");
+			UnknownLogger.log(Level.SEVERE, LogType.CORE, "Internal/ConfigurationManager: unknownserver.properties does not exist, server will create this and run with the default settings");
+			UnknownLogger.log(Level.SEVERE, LogType.CORE, "Internal/ConfigurationManager: These defaults could preset security and/or functionality risks depending on your implementation. UnknownNet-ServerGuard will be activated to monitor suspicious activity.");
 			generateConfig(fConfig);
 		} else {
 			loadConfig(fConfig);
@@ -56,7 +56,7 @@ public class ConfigurationManager {
 	
 
 	private void loadConfig(File fConfig) {
-		logger.info("Internal/ConfigurationManager: Loading configuration file...");
+		UnknownLogger.log(Level.INFO, LogType.CORE, "Internal/ConfigurationManager: Loading configuration file...");
 		try {
 			Properties sProps = new Properties();
 			sProps.load(new FileInputStream(fConfig));
@@ -70,10 +70,9 @@ public class ConfigurationManager {
 			 .setIPTOS(Integer.parseInt(sProps.getProperty("tcp.iptos", "10").trim()))
 			 .setTCPKeepAlive(Boolean.parseBoolean(sProps.getProperty("tcp.keepalive", "true").trim()))
 			 .setAuthServerPort(Integer.parseInt(sProps.getProperty("udp.authport", "4333").trim()));
-			logger.info("Internal/ConfigurationManager: Successfully loaded configuration file");
+			UnknownLogger.log(Level.INFO, LogType.CORE, "Internal/ConfigurationManager: Successfully loaded configuration file");
 		} catch (Exception e) {
-			logger.severe("Internal/ConfigurationManager: Failed to load configuration file, an Exception has occurred. Using defaults");
-			e.printStackTrace();
+			UnknownLogger.log(Level.SEVERE, LogType.CORE, "Internal/ConfigurationManager: Failed to load configuration file, an Exception has occurred. Using defaults", e);
 		}
 	}
 
@@ -110,8 +109,7 @@ public class ConfigurationManager {
 			fWriter.flush();
 			fWriter.close();
 		} catch (Exception e) {
-			logger.severe("Internal/ConfigurationManager: Failed to generate config file. An Exception has occurred.");
-			e.printStackTrace();
+			UnknownLogger.log(Level.SEVERE, LogType.CORE, "Internal/ConfigurationManager: Failed to generate config file. An Exception has occurred.", e);
 		}
 	}
 

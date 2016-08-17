@@ -13,7 +13,6 @@
    limitations under the License. **/
 package com.Unkn0wn0ne.unknownet.client;
 
-import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -30,28 +29,28 @@ import com.Unkn0wn0ne.unknownet.client.net.InternalPacket5Hello;
 import com.Unkn0wn0ne.unknownet.client.net.Packet;
 import com.Unkn0wn0ne.unknownet.client.net.Packet.PACKET_PROTOCOL;
 
-class DualstackClient implements IClientImplementation{
+class DualstackClient extends UDPClient{
 	
-	private UnknownClient uClient;
+	private Socket socket;
 	private DataInputStream diStream;
 	private DataOutputStream doStream;
 	
 	public DualstackClient(UnknownClient client) {
-		this.uClient = client;
+		super(client);
 	}
 
 	@Override
 	public boolean authenticate() {	
 		try {
 			if (!this.uClient.useSSL) {
-				this.uClient.socket = new Socket(this.uClient.ipAddress, this.uClient.port);
+				this.socket = new Socket(this.uClient.ipAddress, this.uClient.port);
 			} else {
 				SocketFactory sslSocketFactory = SSLSocketFactory.getDefault();
-				this.uClient.socket = sslSocketFactory.createSocket(this.uClient.ipAddress, this.uClient.port);
+				this.socket = sslSocketFactory.createSocket(this.uClient.ipAddress, this.uClient.port);
 			}
 			
-			diStream = new DataInputStream(this.uClient.socket.getInputStream());
-		    doStream = new DataOutputStream(this.uClient.socket.getOutputStream());
+			diStream = new DataInputStream(this.socket.getInputStream());
+		    doStream = new DataOutputStream(this.socket.getOutputStream());
 			InternalPacket2Handshake handshakePacket = (InternalPacket2Handshake) this.uClient.clientRepository.getPacket(-2);
 			handshakePacket.setVariables(this.uClient.protocolVersion, (this.uClient.loginParams != null) ? true : false, this.uClient.loginParams);
 			handshakePacket._write(doStream);
@@ -66,7 +65,7 @@ class DualstackClient implements IClientImplementation{
 				String reason = disconnectPacket.getReason();
 				
 				this.uClient.logger.info("Internal/UnknownClient: Server is kicking us out! Message: " + reason);
-				this.uClient.socket.close();
+				this.socket.close();
 				this.uClient.onConnectionFailed(reason);
 				return false;	
 		    }
@@ -128,7 +127,7 @@ class DualstackClient implements IClientImplementation{
 
 			}
 			
-			this.uClient.udpWriter.reset();
+			this.udpWriter.reset();
 			while (!this.uClient.highsToBeSent.isEmpty()) {
 				Packet p2 = this.uClient.highsToBeSent.poll();
 				if (p2.getProtocol() == PACKET_PROTOCOL.TCP) {
@@ -178,7 +177,7 @@ class DualstackClient implements IClientImplementation{
 	 * This loop runs in a separate thread and handles reading the packet ids from the stream and than calling handlePacketReceive
 	 */
 	protected void doReadLoop() {
-		while (!this.uClient.socket.isClosed()) {
+		while (!this.socket.isClosed()) {
 			try {
 				if (this.diStream.available() > 0) {
 					int id = this.diStream.readInt();
@@ -213,29 +212,16 @@ class DualstackClient implements IClientImplementation{
 	
 	private void sendUdp(Packet p) {
 		try {
-			this.uClient.dataOutputStream.writeInt(this.uClient.uid);
-			p._write(this.uClient.dataOutputStream);
-			this.uClient.dataOutputStream.flush();
-			this.uClient.dPacket.setData(this.uClient.udpWriter.toByteArray());
-			this.uClient.dPacket.setLength(this.uClient.dPacket.getData().length);
-			this.uClient.dSocket.send(this.uClient.dPacket);
-			this.uClient.udpWriter.reset();
+			this.dataOutputStream.writeInt(this.uClient.uid);
+			p._write(this.dataOutputStream);
+			this.dataOutputStream.flush();
+			this.dPacket.setData(this.udpWriter.toByteArray());
+			this.dPacket.setLength(this.dPacket.getData().length);
+			this.dSocket.send(this.dPacket);
+			this.udpWriter.reset();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-	}
-	
-	private void closeAndLoad() throws IOException {
-		if (this.uClient.dataInputStream != null) {
-			this.uClient.dataInputStream.close();
-		}
-		this.uClient.udpReader = null;
-		this.uClient.dataInputStream = null;
-	    
-		this.uClient.dSocket.receive(this.uClient.dPacket2);
-	    
-		this.uClient.udpReader = new ByteArrayInputStream(this.uClient.dPacket2.getData());
-		this.uClient.dataInputStream = new DataInputStream(this.uClient.udpReader);
 	}
 
 
@@ -249,8 +235,8 @@ class DualstackClient implements IClientImplementation{
 			
 			try {
 				this.closeAndLoad();
-				int id = this.uClient.dataInputStream.readInt();
-				this.uClient.handlePacketReceive(id, this.uClient.dataInputStream);
+				int id = this.dataInputStream.readInt();
+				this.uClient.handlePacketReceive(id, this.dataInputStream);
 			} catch (IOException e) {
 				this.uClient.logger.severe("Internal/DualStackClient: IOException occurred while reading from UDP stream, disconnecting...");
 				e.printStackTrace();
@@ -265,5 +251,10 @@ class DualstackClient implements IClientImplementation{
 				return;
 			}
 		}
+	}
+
+	@Override
+	public void close() throws IOException {
+		super.close();
 	}
 }

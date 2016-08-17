@@ -26,14 +26,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.Formatter;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
+import java.util.logging.Level;
 
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLServerSocketFactory;
 
+import com.Unkn0wn0ne.unknownnet.server.logging.LogType;
+import com.Unkn0wn0ne.unknownnet.server.logging.UnknownLogger;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet;
 import com.Unkn0wn0ne.unknownnet.server.net.ServerRepository;
 import com.Unkn0wn0ne.unknownnet.server.net.errors.ProtocolViolationException;
@@ -45,8 +44,6 @@ import com.Unkn0wn0ne.unknownnet.server.util.UnknownExceptionHandler;
  * @author Unkn0wn0ne
  */
 public abstract class UnknownServer implements Runnable {
-
-	public Logger logger = Logger.getLogger("UnknownNet");
 	
 	private ConfigurationManager configManager = new ConfigurationManager();
 	private ServerRepository serverRepository = new ServerRepository();
@@ -92,21 +89,7 @@ public abstract class UnknownServer implements Runnable {
 		this.sleep = mainSleep;
 	}
 	
-	private UnknownServer(ServerConfigurationBuilder config, boolean useFileSystem) {
-		this.logger.setUseParentHandlers(false);
-		ConsoleHandler cHandler = new ConsoleHandler();
-		Formatter formatter = new Formatter() {
-
-			@Override
-			public String format(LogRecord record) {
-				return "[" + record.getLevel().getName() + "] " + record.getMessage() + "\n";
-			}
-			
-		};
-		cHandler.setFormatter(formatter);
-		this.logger.addHandler(cHandler);
-		this.logger.addHandler(new FileLogHandler());
-		
+	private UnknownServer(ServerConfigurationBuilder config, boolean useFileSystem) {	
 		this.configManager.setConfiguration(config);
 		this.configManager.setUseFileSystem(useFileSystem);
 		this.configManager.load();
@@ -118,14 +101,12 @@ public abstract class UnknownServer implements Runnable {
 
 			@Override
 			public void run() {
-				logger.info("Internal/UnknownServer: Caught shutdown signal, shutting down server.");
-				if (isRunning) {
-					shutdown(false);
-				}
+				UnknownLogger.log(Level.INFO, LogType.CORE, "Internal/UnknownServer: Caught shutdown signal, shutting down server.");
+				shutdown(false);
 			}
 		};
 		
-		Runtime.getRuntime().addShutdownHook(new Thread(runnable, "Shutdown-Hook-Thread."));
+		Runtime.getRuntime().addShutdownHook(new Thread(runnable, "Shutdown-Hook-Thread"));
 	}
 	
 	
@@ -142,7 +123,7 @@ public abstract class UnknownServer implements Runnable {
 			public void run() {
 				doKeepAliveLoop();
 			}	
-		}).start();
+		}, "Server-KeepAlive-Thread").start();
 		while (this.isRunning) {
 			try {
 				Thread.sleep(this.sleep);
@@ -165,7 +146,9 @@ public abstract class UnknownServer implements Runnable {
 			}
 			
 			synchronized (this.connectedClients) {
-				for (UnknownClient client : this.connectedClients) {
+				for (int i = 0; i < this.connectedClients.size(); i++) {
+					UnknownClient client = this.connectedClients.get(i);
+					
 					if (client.hasBeenEjected()) {
 						this.connectedClients.remove(client);
 					}
@@ -183,16 +166,14 @@ public abstract class UnknownServer implements Runnable {
 	@Override
 	public void run() {
 		if (this.configManager.getProtocol().equalsIgnoreCase("TCP")) {
-			this.logger.info("Internal/UnknownServer: Starting TCP Server on port: " + this.configManager.getServerPort());
+		    UnknownLogger.log(Level.INFO, LogType.CORE, "Internal/UnknownServer: Starting TCP Server on port: " + this.configManager.getServerPort());
 			ServerSocket serv_socket = null;
 			if (!configManager.useSSL()) {
-				logger.warning("Internal/UnknownServer: Server not configured to use SSL. This can pose as a security issue on production servers");
+				UnknownLogger.log(Level.WARNING, LogType.SECURITY_WARNING, "Internal/UnknownServer: Server not configured to use SSL. This can pose as a security issue on production servers");
 				try {
 					serv_socket = new ServerSocket(configManager.getServerPort());
 				} catch (IOException e) {
-					logger.severe("Internal/UnknownServer: Failed to create server socket, an IOException ocurred.");
-					e.printStackTrace();
-					logger.severe("Internal/UnknownServer: Shutting down server.");
+					UnknownLogger.log(Level.SEVERE, LogType.CRITICAL_ERROR, "Internal/UnknownServer: Failed to create server socket, an IOException ocurred. \nShutting down server...", e);
 					System.exit(1);
 				}
 				
@@ -201,9 +182,7 @@ public abstract class UnknownServer implements Runnable {
 				try {
 					serv_socket = sslSocketFactory.createServerSocket(configManager.getServerPort());
 				} catch (IOException e) {
-					logger.severe("Internal/UnknownServer: Failed to create SSL server socket, an IOException ocurred.");
-					e.printStackTrace();
-					logger.severe("Internal/UnknownServer: Shutting down server.");
+					UnknownLogger.log(Level.SEVERE, LogType.CRITICAL_ERROR, "Internal/UnknownServer: Failed to create SSL server socket, an IOException ocurred. \nShutting down server...", e);
 					System.exit(1);
 				}
 			}
@@ -224,30 +203,28 @@ public abstract class UnknownServer implements Runnable {
 						this.silentlyDisconnect(socket, "The server is currently not accepting new connections at the moment.");
 						continue;
 					}
-					logger.info("Internal/UnknownServer: Client connection from '" + socket.getInetAddress().getHostAddress() + ":" + socket.getPort() + "'");
+					UnknownLogger.log(Level.INFO, LogType.NETWORKING, "Internal/UnknownServer: Client connection from '" + socket.getInetAddress().getHostAddress() + ":" + socket.getPort() + "'");
 					handleNewClient(socket, Protocol.TCP);
 				} catch (IOException e) {
-					logger.warning("Internal/UnknownServer: Failed to accept client, an IOException has occurred.");
+					UnknownLogger.log(Level.WARNING, LogType.NETWORKING, "Internal/UnknownServer: Failed to accept client, an IOException has occurred. Continuing on...", e);
 				}
 			}
 			
 			try {
 				serv_socket.close();
 			} catch (IOException e) {
-				logger.severe("Internal/UnknownServer: Failed to close server socket, aborting...");
+				UnknownLogger.log(Level.WARNING, LogType.CORE, "Internal/UnknownServer: Failed to close server socket, aborting...");
 			}
 		} else if (this.configManager.getProtocol().equalsIgnoreCase("UDP")) {
-			this.logger.info("Internal/UnknownServer: Starting TCP authentication server on port " + this.configManager.getAuthServerPort());
+			UnknownLogger.log(Level.INFO, LogType.CORE, "Internal/UnknownServer: Starting TCP authentication server on port " + this.configManager.getAuthServerPort());
 			
 			ServerSocket serv_socket = null;
 			if (!configManager.useSSL()) {
-				logger.warning("Internal/UnknownServer: Server not configured to use SSL. This can pose as a security issue on production servers");
+				UnknownLogger.log(Level.WARNING, LogType.SECURITY_WARNING, "Internal/UnknownServer: Server not configured to use SSL. This can pose as a security issue on production servers");
 				try {
 					serv_socket = new ServerSocket(configManager.getAuthServerPort());
 				} catch (IOException e) {
-					logger.severe("Internal/UnknownServer: Failed to create server socket, an IOException ocurred.");
-					e.printStackTrace();
-					logger.severe("Internal/UnknownServer: Shutting down server.");
+					UnknownLogger.log(Level.SEVERE, LogType.CORE, "Internal/UnknownServer: Failed to create server socket, an IOException ocurred. \nShutting down server...", e);
 					System.exit(1);
 				}
 				
@@ -256,9 +233,7 @@ public abstract class UnknownServer implements Runnable {
 				try {
 					serv_socket = sslSocketFactory.createServerSocket(configManager.getAuthServerPort());
 				} catch (IOException e) {
-					logger.severe("Internal/UnknownServer: Failed to create SSL server socket, an IOException ocurred.");
-					e.printStackTrace();
-					logger.severe("Internal/UnknownServer: Shutting down server.");
+					UnknownLogger.log(Level.SEVERE, LogType.CORE, "Internal/UnknownServer: Failed to create SSL server socket, an IOException ocurred. \nShutting down server...", e);
 					System.exit(1);
 				}
 			}
@@ -267,23 +242,23 @@ public abstract class UnknownServer implements Runnable {
 			 * This code here is particularly interesting, as we had to accomplish handling tons of concurrent clients using a single datagram socket. 
 			 * This was accomplished by directly passing the datagrams to the clients to process and passing datagrams to the server to send.
 			 */
-			this.logger.info("Internal/UnknownServer: Starting UDP Server on port: " + this.configManager.getServerPort());
+			UnknownLogger.log(Level.INFO, LogType.CORE, "Internal/UnknownServer: Starting UDP Server on port: " + this.configManager.getServerPort());
 			if (this.configManager.useSSL()) {
-				this.logger.warning("Internal/UnknownServer: SSL is currently not supported with UnknownNet's UDP implementation.");
+				UnknownLogger.log(Level.WARNING, LogType.NETWORKING, "Internal/UnknownServer: SSL is currently not supported with UnknownNet's UDP implementation.");
 			}
 			
 			new Thread(
 				new Runnable() {
 					@Override
 					public void run() {
-						byte[] buffer;
+						byte[] buffer = null;
 						
 						try {
 							UnknownServer.this.uServerSocket = new DatagramSocket(UnknownServer.this.configManager.getServerPort());
 							buffer = new byte[UnknownServer.this.uServerSocket.getReceiveBufferSize()];
 						} catch (SocketException e) {
-							UnknownServer.this.logger.severe("Internal/UnknownServer: Fatal: Failed to create UDP server. A socket exception has occurred.");
-							e.printStackTrace();
+							UnknownLogger.log(Level.SEVERE, LogType.CORE, "Internal/UnknownServer: Fatal: Failed to create UDP server. A socket exception has occurred. \nShutting down server...", e);
+							System.exit(1);
 							return;
 						}
 						while (!UnknownServer.this.uServerSocket.isClosed()) {
@@ -333,18 +308,16 @@ public abstract class UnknownServer implements Runnable {
 		} 
 			
 		if (this.configManager.getProtocol().equalsIgnoreCase("dualstack")) {
-			this.logger.info("Internal/UnknownServer: Starting DUALSTACK (TCP + UDP) server on ports [TCP=" + this.configManager.getServerPort() + ";UDP=" + this.configManager.getAuthServerPort() + "]");
-			this.logger.info("Internal/UnknownServer: Starting TCP Server on port: " + this.configManager.getServerPort());
+			UnknownLogger.log(Level.INFO, LogType.CORE, "Internal/UnknownServer: Starting DUALSTACK (TCP + UDP) server on ports [TCP=" + this.configManager.getServerPort() + ";UDP=" + this.configManager.getAuthServerPort() + "]");
+			UnknownLogger.log(Level.INFO, LogType.CORE, "Internal/UnknownServer: Starting TCP Server on port: " + this.configManager.getServerPort());
 			
 			ServerSocket serv_socket = null;
 			if (!configManager.useSSL()) {
-				logger.warning("Internal/UnknownServer: Server not configured to use SSL. This can pose as a security issue on production servers");
+				UnknownLogger.log(Level.INFO, LogType.SECURITY_WARNING, "Internal/UnknownServer: Server not configured to use SSL. This can pose as a security issue on production servers");
 				try {
 					serv_socket = new ServerSocket(configManager.getServerPort());
 				} catch (IOException e) {
-					logger.severe("Internal/UnknownServer: Failed to create server socket, an IOException ocurred.");
-					e.printStackTrace();
-					logger.severe("Internal/UnknownServer: Shutting down server.");
+					UnknownLogger.log(Level.INFO, LogType.CRITICAL_ERROR, "Internal/UnknownServer: Failed to create the server socket, an IOException ocurred. \nShutting down server...", e);
 					System.exit(1);
 				}
 				
@@ -353,9 +326,7 @@ public abstract class UnknownServer implements Runnable {
 				try {
 					serv_socket = sslSocketFactory.createServerSocket(configManager.getServerPort());
 				} catch (IOException e) {
-					logger.severe("Internal/UnknownServer: Failed to create SSL server socket, an IOException ocurred.");
-					e.printStackTrace();
-					logger.severe("Internal/UnknownServer: Shutting down server.");
+					UnknownLogger.log(Level.INFO, LogType.CRITICAL_ERROR, "Internal/UnknownServer: Failed to create the SSL server socket, an IOException ocurred. \nShutting down server...", e);
 					System.exit(1);
 				}
 			}
@@ -365,16 +336,17 @@ public abstract class UnknownServer implements Runnable {
 					new Runnable() {
 						@Override
 						public void run() {
-							byte[] buffer;
+							byte[] buffer = null;
 							
 							try {
 								UnknownServer.this.uServerSocket = new DatagramSocket(UnknownServer.this.configManager.getAuthServerPort());
 								buffer = new byte[UnknownServer.this.uServerSocket.getReceiveBufferSize()];
 							} catch (SocketException e) {
-								UnknownServer.this.logger.severe("Internal/UnknownServer: Fatal: Failed to create UDP server. A socket exception has occurred.");
-								e.printStackTrace();
+								UnknownLogger.log(Level.SEVERE, LogType.CORE, "Internal/UnknownServer: Fatal: Failed to create UDP server. A socket exception has occurred. \nShutting down server...", e);
+								System.exit(1);
 								return;
 							}
+							
 							while (!UnknownServer.this.uServerSocket.isClosed()) {
 								DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 								try {
@@ -418,19 +390,18 @@ public abstract class UnknownServer implements Runnable {
 						this.silentlyDisconnect(socket, "The server is currently not accepting new connections at the moment.");
 						continue;
 					}
-					logger.info("Internal/UnknownServer: Client connection from '" + socket.getInetAddress().getHostAddress() + ":" + socket.getPort() + "'");
+					UnknownLogger.log(Level.INFO, LogType.NETWORKING, "Internal/UnknownServer: Client connection from '" + socket.getInetAddress().getHostAddress() + ":" + socket.getPort() + "'");
 					handleNewClient(socket, Protocol.DUALSTACK);
 				} catch (IOException e) {
-					logger.warning("Internal/UnknownServer: Failed to accept client, an IOException has occurred.");
+					UnknownLogger.log(Level.SEVERE, LogType.NETWORKING,"Internal/UnknownServer: Failed to accept client, an IOException has occurred. Continuing on...", e);
 				}
 			}
 			
 			try {
 				serv_socket.close();
 			} catch (IOException e) {
-				logger.severe("Internal/UnknownServer: Failed to close server socket, aborting...");
+				UnknownLogger.log(Level.SEVERE, LogType.CORE, "Internal/UnknownServer: Failed to close server socket, aborting...");
 			}
-				
 		}
 	}
 
@@ -475,7 +446,8 @@ public abstract class UnknownServer implements Runnable {
 					uPacket.read(dataStream);
 					
 					synchronized (this.connectedClients) {
-						for (UnknownClient client : this.connectedClients) {
+						for (int i = 0; i < this.connectedClients.size(); i++) {
+							UnknownClient client = this.connectedClients.get(i);
 							// Check by id, IP, and port in order to avoid malicious attacks, not perfect but the best we've got
 							if (client.getId() == clientId) {
 								if (client.udpActive && client.getUDP() != packet.getPort()) {
@@ -585,7 +557,7 @@ public abstract class UnknownServer implements Runnable {
 	 */
 	public void setClientAsAdministrator(UnknownClient client) {
 		if (client.getState() == -1) {
-			logger.warning("Internal/UnknownServer: Tried to set non-authenicated client as an administrator. This functionality is not supported for security reasons. Ignoring request");
+			UnknownLogger.log(Level.WARNING, LogType.SECURITY_WARNING, "Internal/UnknownServer: Tried to set non-authenicated client as an administrator. This functionality is not supported for security reasons. Ignoring request");
 		}
 		client.setState(1);
 	}
@@ -730,7 +702,8 @@ public abstract class UnknownServer implements Runnable {
 		this.isRunning = false;
 		synchronized (this.connectedClients) {
 			if (this.connectedClients.size() > 0) {
-				for (UnknownClient c : this.connectedClients) {
+				for (int i = 0; i < this.connectedClients.size(); i++) {
+					UnknownClient c = this.connectedClients.get(i);
 					c.eject("Server is shutting down.", true);
 				}
 			}

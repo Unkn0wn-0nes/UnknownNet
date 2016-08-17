@@ -15,7 +15,10 @@ package com.Unkn0wn0ne.unknownnet.server;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.util.logging.Level;
 
+import com.Unkn0wn0ne.unknownnet.server.logging.LogType;
+import com.Unkn0wn0ne.unknownnet.server.logging.UnknownLogger;
 import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket1Kick;
 import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket2Handshake;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet;
@@ -57,7 +60,7 @@ public class TCPClient extends UnknownClient {
 			}
 			case -3: {
 				this.receivedKeepAlives++;
-				if (this.sendKeepAlives > this.receivedKeepAlives) {
+				if (this.sendKeepAlives < this.receivedKeepAlives) {
 					// Client is spamming keep-alive packets, eject them
 					this.eject(
 							"Protocol Error: Invalid keep alive packet received.",
@@ -80,7 +83,7 @@ public class TCPClient extends UnknownClient {
 			}
 			case -1: {
 				InternalPacket1Kick disconnectPacket = (InternalPacket1Kick) packet;
-				this.server.logger.info("Internal/UnknownClient: Client '"
+				UnknownLogger.log(Level.INFO, LogType.NETWORKING, "Internal/UnknownClient: Client '"
 						+ this.getAddress().getHostAddress()
 						+ "' has disconnection. [Reason: "
 						+ disconnectPacket.getMessage() + "]");
@@ -135,7 +138,8 @@ public class TCPClient extends UnknownClient {
 			
 			try {
 				if (dataInputStream.available() > 0) {
-					Packet packet = this.server.getRepository().getPacket(dataInputStream.readInt());
+					int id = dataInputStream.readInt();
+					Packet packet = this.server.getRepository().getPacket(id);
 					packet.read(this.dataInputStream);
 					this.processPacket(packet);
 				}

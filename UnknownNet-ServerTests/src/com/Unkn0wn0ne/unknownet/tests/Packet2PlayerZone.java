@@ -11,18 +11,26 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License. **/
-package com.Unkn0wn0ne.unknownnet.server.net;
+package com.Unkn0wn0ne.unknownet.tests;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+import com.Unkn0wn0ne.unknownnet.server.net.Packet;
 
-public class InternalPacket3KeepAlive extends Packet {
+public class Packet2PlayerZone extends Packet{
+
+	private boolean isJoining = false;
+	
+	@Override
+	public void setVariables(Object... vars) {
+		
+	}
 
 	@Override
 	public int getId() {
-		return -3;
+		return 2;
 	}
 
 	@Override
@@ -32,19 +40,14 @@ public class InternalPacket3KeepAlive extends Packet {
 
 	@Override
 	public void read(DataInputStream dataStream) throws IOException {
-		
-	}
-
-	@Override
-	public void setVariables(Object... vars) {
-		
+		this.isJoining = dataStream.readBoolean();
 	}
 
 	@Override
 	public PACKET_PRIORITY getPriority() {
-		return PACKET_PRIORITY.HIGH;
+		return PACKET_PRIORITY.INTERNAL;
 	}
-	
+
 	@Override
 	public PACKET_PROTOCOL getProtocol() {
 		return PACKET_PROTOCOL.TCP;
@@ -52,7 +55,11 @@ public class InternalPacket3KeepAlive extends Packet {
 
 	@Override
 	public void clearVariables() {
-		
+		this.isJoining = false;
+	}
+	
+	public boolean isJoining() {
+		return this.isJoining;
 	}
 
 }

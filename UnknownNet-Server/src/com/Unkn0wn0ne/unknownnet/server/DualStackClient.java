@@ -17,7 +17,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.logging.Level;
 
+import com.Unkn0wn0ne.unknownnet.server.logging.LogType;
+import com.Unkn0wn0ne.unknownnet.server.logging.UnknownLogger;
 import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket1Kick;
 import com.Unkn0wn0ne.unknownnet.server.net.InternalPacket2Handshake;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet;
@@ -75,7 +78,7 @@ public class DualStackClient extends UnknownClient {
 		}
 		case -1: {
 			InternalPacket1Kick disconnectPacket = (InternalPacket1Kick) packet;
-			this.server.logger.info("Internal/UnknownClient: Client '" + this.getAddress().getHostAddress() + "' has disconnection. [Reason: "+ disconnectPacket.getMessage() + "]");
+			UnknownLogger.log(Level.INFO, LogType.NETWORKING, "Internal/UnknownClient: Client '" + this.getAddress().getHostAddress() + "' has disconnection. [Reason: "+ disconnectPacket.getMessage() + "]");
 			this.server.handleClientLeaving(this);
 			this.server.getRepository().freePacket(packet);
 			break;

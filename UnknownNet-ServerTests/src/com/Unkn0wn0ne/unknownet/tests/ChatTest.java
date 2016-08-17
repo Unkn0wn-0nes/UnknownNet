@@ -13,8 +13,12 @@
    limitations under the License. **/
 package com.Unkn0wn0ne.unknownet.tests;
 
+import java.util.logging.Level;
+
 import com.Unkn0wn0ne.unknownnet.server.UnknownClient;
 import com.Unkn0wn0ne.unknownnet.server.UnknownServer;
+import com.Unkn0wn0ne.unknownnet.server.logging.LogType;
+import com.Unkn0wn0ne.unknownnet.server.logging.UnknownLogger;
 import com.Unkn0wn0ne.unknownnet.server.net.Packet;
 import com.Unkn0wn0ne.unknownnet.server.net.errors.ProtocolViolationException;
 
@@ -44,7 +48,7 @@ public class ChatTest extends UnknownServer{
 		try {
 			msgPacket = (Packet1ChatMessage) this.createPacket(1);
 		} catch (ProtocolViolationException e) {
-			this.logger.info("Failed to create message packet. :(");
+			UnknownLogger.log(Level.SEVERE, LogType.IMPLEMENTATION, "Failed to create message packet. :(");
 		}
 		
 		// Let the other clients know someone connected
@@ -104,7 +108,7 @@ public class ChatTest extends UnknownServer{
 			String str = client.getClientTag() + ": " + msg;
 			
 			// Log the message
-			this.logger.info("[MSG] " + str);
+			UnknownLogger.log(Level.INFO, LogType.IMPLEMENTATION, "[MSG] " + str);
 			
 			try {
 				// Send the msg to all the clients
